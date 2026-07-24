@@ -13,12 +13,26 @@ import sys
 def _reopen_stdout_utf8() -> None:
     """A windowed PyInstaller build (console=False) sets sys.stdout to None, but the
     parent engine hands render/train workers a pipe on fd 1 and parses their stdout.
-    Reopen fd 1 as UTF-8 so emit_progress/emit_format/print reach the parent on every
-    OS, regardless of the windowed bootloader or the console code page."""
-    try:
-        sys.stdout = os.fdopen(1, "w", encoding="utf-8", buffering=1, closefd=False)
-    except OSError:
-        pass
+    Make fd 1 a line-buffered UTF-8 text stream so emit_progress/emit_format/print reach
+    the parent on every OS, regardless of the windowed bootloader or the console code
+    page. Line buffering is load-bearing, not cosmetic: with stdout on a pipe CPython
+    block-buffers at 8 KB, and only emit_progress passes flush=True.
+
+    When stdout already exists (Linux and macOS always; console=True builds) reconfigure
+    it in place rather than layering a second wrapper over fd 1 — two wrappers on one fd
+    get finalized in unspecified order at exit, and if the original closes fd 1 first the
+    other one's flush raises "Exception ignored ... Bad file descriptor" straight into the
+    pipe the parent is parsing, which then lands in the user-visible error string."""
+    if sys.stdout is None:
+        try:
+            sys.stdout = os.fdopen(1, "w", encoding="utf-8", buffering=1, closefd=False)
+        except OSError:
+            pass
+    else:
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)
+        except (AttributeError, OSError, ValueError):
+            pass
 
 
 def main() -> None:

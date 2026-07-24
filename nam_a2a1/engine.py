@@ -120,8 +120,10 @@ _WIN_RESERVED = {
 
 def _safe_stem(name: str) -> str:
     """Make a file stem safe on Windows: strip illegal chars, reserved names, and
-    trailing dots/spaces. Used only for on-disk paths; display keeps the original."""
-    cleaned = _ILLEGAL.sub("_", name).rstrip(" .")
+    leading/trailing dots/spaces. Used only for on-disk paths; display keeps the
+    original. The LEADING strip is for Linux, where a stem like ".MyAmp" would write a
+    dotfile the user can't see in their file manager or in plain `ls`."""
+    cleaned = _ILLEGAL.sub("_", name).strip(" .")
     if not cleaned or cleaned.upper() in _WIN_RESERVED:
         cleaned = f"_{cleaned}" if cleaned else "capture"
     return cleaned

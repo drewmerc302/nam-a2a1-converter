@@ -5,6 +5,9 @@ build/pyi/
 dist/
 *.dmg
 *.zip
+*.tar.gz
 # conversion output
 NAM-A2A1-out/
+# local tooling output
+graphify-out/
 .DS_Store

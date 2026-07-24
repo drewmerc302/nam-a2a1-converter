@@ -2,12 +2,13 @@
 
 ---
 
-**TL;DR** — A2-only NAM captures won't load on devices that only accept A1 (like the Valeton GP-5/GP-50). I made a free, no-setup desktop app that distills any A2 `.nam` into an A1 `.nam`. Drop a file, get a file. Windows + macOS.
+**TL;DR** — Many NAM capture providers have stopped providing NAM A1 files entirely, leaving owners of devices that convert NAM A1 to some proprietary format unable to use the most recent captures (like the Valeton GP-5/GP-50, Hotone Ampero, etc...). I made a free, no-setup desktop app that distills any A2 `.nam` into an A1 `.nam`. Drop a file, get a file. Windows + macOS + Linux.
 
 **Downloads (no Python, no setup):**
 
 - macOS (signed + notarized, opens clean): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-macos.dmg
 - Windows (unzip + run): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-windows.zip
+- Linux x86_64 (extract + run): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-linux-x86_64.tar.gz
 - Source + all releases: https://github.com/drewmerc302/nam-a2a1-converter
 
 ---
@@ -26,7 +27,7 @@ A2.nam ──render DI──▶ teacher.wav ──train an A1 to match──▶ 
 
 **How to use it**
 
-1. Download + open. (macOS is notarized. Windows is unsigned — SmartScreen will warn; click *More info → Run anyway*. AV may false-positive on the PyInstaller build.)
+1. Download + open. (macOS is notarized. Windows is unsigned — SmartScreen will warn; click *More info → Run anyway*. AV may false-positive on the PyInstaller build. Linux: extract the tarball and run `./nam-a2a1-converter/nam-a2a1-converter` from a terminal.)
 2. Drop your A2 `.nam` — batches work, they convert one after another.
 3. Pick a quality preset (Draft / Standard / Best), hit **Convert**. Live progress bar + ETA, cancel anytime.
 4. Load the A1 `.nam` on your device. For Valeton: import into Valeton Suite → it makes a SnapTone → push to the pedal.
@@ -35,6 +36,7 @@ A2.nam ──render DI──▶ teacher.wav ──train an A1 to match──▶ 
 
 - Free and open source. Runs 100% on your machine — nothing is uploaded.
 - First convert is slowest on a machine with no GPU (CPU training — a few minutes at Standard).
-- **macOS is tested end-to-end.** The **Windows** build compiles and passes an automated import check in CI, but I don't own a Windows machine — so **nobody has run an actual conversion on Windows yet.** If you're on Windows, consider yourself a tester: it *should* work, but please report back or open an issue if it doesn't.
+- **macOS is tested end-to-end.** The **Windows** and **Linux** builds compile and pass an automated import check in CI, but I don't own either machine — so **nobody has run an actual conversion on them yet.** If you're on Windows or Linux, consider yourself a tester: it *should* work, but please report back or open an issue if it doesn't.
+- **Linux** is x86_64 and built against glibc 2.35 — Ubuntu 22.04+, Debian 12+, Mint 21+, Fedora 36+, Arch. Older than that, or on ARM, run it from source (`pip install -r requirements.txt`); it's the same app.
 
 Questions/bugs → drop them here or open an issue on the repo. Enjoy.

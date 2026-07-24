@@ -25,6 +25,20 @@ Latest desktop build — no Python, no setup:
 - **Windows** — [**nam-a2a1-converter-windows.zip**](https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-windows.zip)
   — unzip, run `nam-a2a1-converter.exe`. It's **unsigned**, so SmartScreen warns:
   click **More info → Run anyway**. Some antivirus may flag PyInstaller apps — false positive.
+- **Linux (x86_64)** — [**nam-a2a1-converter-linux-x86_64.tar.gz**](https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-linux-x86_64.tar.gz)
+  — extract and run from a terminal:
+
+  ```bash
+  tar -xzf nam-a2a1-converter-linux-x86_64.tar.gz
+  ./nam-a2a1-converter/nam-a2a1-converter      # opens your browser; Ctrl+C to quit
+  ```
+
+  Built against **glibc 2.35**, so it runs on Ubuntu 22.04+, Debian 12+, Mint 21+,
+  Pop!\_OS 22.04+, Fedora 36+, Arch, and openSUSE 15.5+. Older distros (Ubuntu 20.04,
+  Debian 11, RHEL 9) will fail at launch with `GLIBC_2.35 not found` — [run from
+  source](#run-from-source) instead. **glibc is the only thing it needs from your
+  system** — Tcl/Tk and the X11 client libs are bundled, so there are no packages to
+  install. If the browser doesn't open by itself, the terminal prints the URL.
 
 All releases: [github.com/drewmerc302/nam-a2a1-converter/releases](https://github.com/drewmerc302/nam-a2a1-converter/releases)
 
