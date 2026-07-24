@@ -35,6 +35,6 @@ A2.nam ──render DI──▶ teacher.wav ──train an A1 to match──▶ 
 
 - Free and open source. Runs 100% on your machine — nothing is uploaded.
 - First convert is slowest on a machine with no GPU (CPU training — a few minutes at Standard).
-- I tested macOS thoroughly. Windows builds and passes an import smoke-test in CI, but I don't own a Windows box — **testers and feedback very welcome.**
+- **macOS is tested end-to-end.** The **Windows** build compiles and passes an automated import check in CI, but I don't own a Windows machine — so **nobody has run an actual conversion on Windows yet.** If you're on Windows, consider yourself a tester: it *should* work, but please report back or open an issue if it doesn't.
 
 Questions/bugs → drop them here or open an issue on the repo. Enjoy.
