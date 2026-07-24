@@ -4,6 +4,8 @@
 
 **TL;DR** — Many NAM capture providers have stopped providing NAM A1 files entirely, leaving owners of devices that convert NAM A1 to some proprietary format unable to use the most recent captures (like the Valeton GP-5/GP-50, Hotone Ampero, etc...). I made a free, no-setup desktop app that distills any A2 `.nam` into an A1 `.nam`. Drop a file, get a file. Windows + macOS + Linux.
 
+**Edit:** Linux build is up as of v0.2.0 — someone asked, so I built it. x86_64, link below.
+
 **Downloads (no Python, no setup):**
 
 - macOS (signed + notarized, opens clean): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-macos.dmg
@@ -37,6 +39,6 @@ A2.nam ──render DI──▶ teacher.wav ──train an A1 to match──▶ 
 - Free and open source. Runs 100% on your machine — nothing is uploaded.
 - First convert is slowest on a machine with no GPU (CPU training — a few minutes at Standard).
 - **macOS is tested end-to-end.** The **Windows** and **Linux** builds compile and pass an automated import check in CI, but I don't own either machine — so **nobody has run an actual conversion on them yet.** If you're on Windows or Linux, consider yourself a tester: it *should* work, but please report back or open an issue if it doesn't.
-- **Linux** is x86_64 and built against glibc 2.35 — Ubuntu 22.04+, Debian 12+, Mint 21+, Fedora 36+, Arch. Older than that, or on ARM, run it from source (`pip install -r requirements.txt`); it's the same app.
+- **Linux** is x86_64, built against glibc 2.35 — Ubuntu 22.04+, Debian 12+, Mint 21+, Pop!_OS 22.04+, Fedora 36+, Arch, openSUSE 15.5+. **Nothing to install:** Tcl/Tk and the X11 libs are bundled, so glibc is the only thing it needs from your system. Older distro or ARM → run it from source (`pip install -r requirements.txt`), same app.
 
 Questions/bugs → drop them here or open an issue on the repo. Enjoy.
