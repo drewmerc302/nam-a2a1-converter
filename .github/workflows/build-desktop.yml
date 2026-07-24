@@ -75,9 +75,24 @@ jobs:
             echo "$CERT_B64" | base64 --decode > cert.p12
             security import cert.p12 -k "$KEYCHAIN" -P "$CERT_PW" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN"
+
             IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -o '"Developer ID Application.*"' | head -1 | tr -d '"')
-            find "$APP_DIR" -type f \( -name "*.dylib" -o -name "*.so" \) -exec \
-              codesign --force --timestamp --options runtime --sign "$IDENTITY" {} +
+            if [ -z "$IDENTITY" ]; then
+              echo "::error::No 'Developer ID Application' identity in the .p12. \
+Re-export the RIGHT cert from Keychain (Developer ID Application, WITH its private key) \
+into MACOS_CERT_P12_BASE64. Identities actually found:"
+              security find-identity -v -p codesigning "$KEYCHAIN"
+              exit 1
+            fi
+            echo "using identity: $IDENTITY"
+
+            # Sign EVERY Mach-O binary (not just .dylib/.so), inner ones first, with
+            # hardened runtime + a secure timestamp — anything unsigned fails notarization.
+            while IFS= read -r f; do
+              if file "$f" | grep -q "Mach-O"; then
+                codesign --force --timestamp --options runtime --sign "$IDENTITY" "$f"
+              fi
+            done < <(find "$APP_DIR" -type f | sort -r)
             codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP_DIR/nam-a2a1-converter"
           else
             echo "no signing secrets — building unsigned dmg"
@@ -88,8 +103,17 @@ jobs:
           if [ -n "$CERT_B64" ] && [ -n "$API_KEY_B64" ]; then
             echo "notarizing…"
             echo "$API_KEY_B64" | base64 --decode > api_key.p8
-            xcrun notarytool submit "$DMG" \
-              --key api_key.p8 --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait
+            SUBMIT=$(xcrun notarytool submit "$DMG" \
+              --key api_key.p8 --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait 2>&1)
+            echo "$SUBMIT"
+            SUB_ID=$(echo "$SUBMIT" | grep -m1 -oE '  id: [0-9a-f-]+' | awk '{print $2}')
+            if echo "$SUBMIT" | grep -q "status: Invalid"; then
+              echo "::group::notarization log"
+              xcrun notarytool log "$SUB_ID" \
+                --key api_key.p8 --key-id "$API_KEY_ID" --issuer "$API_ISSUER" || true
+              echo "::endgroup::"
+              exit 1
+            fi
             xcrun stapler staple "$DMG"
           fi
 
