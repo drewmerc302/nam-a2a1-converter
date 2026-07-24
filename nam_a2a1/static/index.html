@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NAM A2 → A1 Converter</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <nav class="top-nav">
+      <div class="brand">
+        <div class="brand-logo">A</div>
+        <div><div class="brand-name">NAM A2 → A1</div><div class="brand-sub">Converter</div></div>
+      </div>
+      <div class="nav-spacer"></div>
+      <button type="button" id="theme-toggle" class="theme-toggle">☾ Dark</button>
+    </nav>
+  </header>
+  <div class="page-head">
+    <h1>NAM A2 → A1 Converter</h1>
+    <p class="subtitle">Distill NAM <b>A2</b> captures into <b>A1</b> <code>.nam</code> files that A1-only devices
+      (e.g. the Valeton GP-5 / GP-50) accept. Drop an A2, get an A1.</p>
+  </div>
+
+  <main>
+    <div class="convert-section">
+      <section class="card" id="nam-converter">
+        <h3>1. A2 captures</h3>
+        <div id="drop-zone" class="drop-zone" tabindex="0">
+          <p>Drag &amp; drop <code>.nam</code> A2 captures here, or</p>
+          <button type="button" id="file-picker-btn">Choose files&hellip;</button>
+          <input type="file" id="file-input" accept=".nam" multiple hidden />
+        </div>
+        <ul id="file-list" class="file-list convert-list"></ul>
+
+        <div class="epochs-field" style="margin-top:0.85rem;">
+          <label for="epochs">Training epochs</label>
+          <div class="epochs-row" style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+            <div id="epoch-presets" class="epoch-presets" style="display:flex; gap:0.35rem;">
+              <button type="button" class="epoch-preset" data-epochs="20">Draft</button>
+              <button type="button" class="epoch-preset" data-epochs="60">Standard</button>
+              <button type="button" class="epoch-preset" data-epochs="120">Best</button>
+            </div>
+            <input id="epochs" type="number" min="1" max="1000" value="60" style="width:6rem;" />
+          </div>
+          <ul class="epoch-guide">
+            <li><b>Draft (20)</b> — quick preview. Rough, artifacts likely; use only to sanity-check a file.</li>
+            <li><b>Standard (60)</b> — the sweet spot. Faithful tone at a sane runtime. <b>Default.</b></li>
+            <li><b>Best (120)</b> — chasing the last few %. Diminishing returns and noticeably longer.</li>
+          </ul>
+          <p class="epoch-note">More epochs = longer convert but tighter tone. First convert on a fresh machine is
+            slowest (no GPU on a stock Windows box). The progress bar shows an estimate once training starts.</p>
+        </div>
+
+        <div class="format-toggle" id="format-toggle" style="margin-top:0.6rem;">
+          <label class="radio-pill"><input type="radio" name="output_format" value="0.5x" checked /> A1 0.5.x <span class="hint">— GP-5 / GP-50 &amp; other A1-only gear</span></label>
+          <label class="radio-pill"><input type="radio" name="output_format" value="0.7.0" /> A1 0.7.0 <span class="hint">— newer NAM plugins</span></label>
+        </div>
+
+        <div style="display:flex; gap:0.5rem; margin-top:0.85rem; align-items:center;">
+          <button type="button" id="convert-btn" class="primary" disabled>Convert A2 → A1</button>
+          <button type="button" id="cancel-btn" hidden>Cancel</button>
+        </div>
+        <div id="error-banner" class="error-banner" role="alert" hidden></div>
+        <section id="results-section" hidden style="margin-top:1rem;">
+          <h3>Results</h3>
+          <ul id="results" class="file-list"></ul>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script src="/static/theme.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

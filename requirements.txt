@@ -1,0 +1,9 @@
+# Single environment — the whole pipeline runs on NAM 0.13.0. The A1 output is
+# transcoded to the 0.5.x format in-process (nam_a2a1/pipeline/nam_transcode.py),
+# so no second NAM version is needed.
+neural-amp-modeler==0.13.0
+fastapi
+uvicorn[standard]
+python-multipart
+soundfile
+numpy

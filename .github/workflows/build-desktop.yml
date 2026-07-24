@@ -1,0 +1,112 @@
+name: build-desktop
+
+# Builds the frozen converter for Windows (.zip, unsigned) and macOS (.dmg,
+# signed + notarized when Apple secrets are present). Runs on a v* tag and
+# attaches the artifacts to the GitHub Release. Can also be run manually to
+# smoke-test the freeze (artifacts uploaded to the run, not a release).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+          - os: macos-latest
+            platform: mac
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps (CPU torch)
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Freeze
+        shell: bash
+        run: pyinstaller --noconfirm build/nam-a2a1-converter.spec
+
+      # ---------- Windows: zip the onedir ----------
+      - name: Package (Windows)
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/nam-a2a1-converter/* -DestinationPath nam-a2a1-converter-windows.zip
+
+      # ---------- macOS: sign + dmg + notarize ----------
+      - name: Package (macOS)
+        if: matrix.platform == 'mac'
+        shell: bash
+        env:
+          CERT_B64: ${{ secrets.MACOS_CERT_P12_BASE64 }}
+          CERT_PW: ${{ secrets.MACOS_CERT_PASSWORD }}
+          KEYCHAIN_PW: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+          API_KEY_B64: ${{ secrets.APPLE_API_KEY_P8_BASE64 }}
+        run: |
+          set -e
+          APP_DIR="dist/nam-a2a1-converter"
+          DMG="nam-a2a1-converter-macos.dmg"
+
+          if [ -n "$CERT_B64" ]; then
+            echo "signing…"
+            KEYCHAIN=build.keychain
+            security create-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+            security default-keychain -s "$KEYCHAIN"
+            security unlock-keychain -p "$KEYCHAIN_PW" "$KEYCHAIN"
+            echo "$CERT_B64" | base64 --decode > cert.p12
+            security import cert.p12 -k "$KEYCHAIN" -P "$CERT_PW" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN"
+            IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -o '"Developer ID Application.*"' | head -1 | tr -d '"')
+            find "$APP_DIR" -type f \( -name "*.dylib" -o -name "*.so" \) -exec \
+              codesign --force --timestamp --options runtime --sign "$IDENTITY" {} +
+            codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP_DIR/nam-a2a1-converter"
+          else
+            echo "no signing secrets — building unsigned dmg"
+          fi
+
+          hdiutil create -volname "NAM A2A1 Converter" -srcfolder "$APP_DIR" -ov -format UDZO "$DMG"
+
+          if [ -n "$CERT_B64" ] && [ -n "$API_KEY_B64" ]; then
+            echo "notarizing…"
+            echo "$API_KEY_B64" | base64 --decode > api_key.p8
+            xcrun notarytool submit "$DMG" \
+              --key api_key.p8 --key-id "$API_KEY_ID" --issuer "$API_ISSUER" --wait
+            xcrun stapler staple "$DMG"
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nam-a2a1-converter-${{ matrix.platform }}
+          path: |
+            nam-a2a1-converter-windows.zip
+            nam-a2a1-converter-macos.dmg
+          if-no-files-found: ignore
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            nam-a2a1-converter-windows.zip
+            nam-a2a1-converter-macos.dmg
+          fail_on_unmatched_files: false

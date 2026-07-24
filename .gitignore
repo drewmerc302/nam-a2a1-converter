@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+build/pyi/
+dist/
+*.dmg
+*.zip
+# conversion output
+NAM-A2A1-out/
+.DS_Store
