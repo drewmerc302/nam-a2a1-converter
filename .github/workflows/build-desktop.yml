@@ -81,14 +81,11 @@ jobs:
             security find-identity -v -p codesigning "$KEYCHAIN"
             IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -m1 -oE '[0-9A-F]{40}')
             if [ -z "$IDENTITY" ]; then
-              echo "::error::No codesigning identity in the .p12. Export the CERTIFICATE \
-row 'Developer ID Application …' (not the private-key row) from Keychain into \
-MACOS_CERT_P12_BASE64."
+              echo "::error::No codesigning identity in the .p12 — export the 'Developer ID Application' CERTIFICATE row (not the private-key row) into MACOS_CERT_P12_BASE64."
               exit 1
             fi
             if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "Developer ID Application"; then
-              echo "::error::The imported identity is not a 'Developer ID Application' cert \
-— notarization will reject it. Export the Developer ID Application certificate."
+              echo "::error::Imported identity is not a 'Developer ID Application' cert — notarization will reject it."
               exit 1
             fi
             echo "using identity hash: $IDENTITY"
