@@ -48,7 +48,11 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "PyQt5", "PySide2"],
+    # NB: neural-amp-modeler imports tkinter AND matplotlib at module load
+    # (nam.train.core), and nam.models pulls nam.train transitively — so both must
+    # be bundled even though this app never shows a GUI plot. matplotlib falls back
+    # to the Agg backend, so the Qt bindings can stay excluded.
+    excludes=["PyQt5", "PySide2"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
