@@ -14,21 +14,32 @@ A2.nam ──render DI──▶ teacher.wav ──train an A1 to match──▶ 
 Because the A2 teacher is deterministic and noise-free, the A1 copy is typically a
 *tighter* match to the A2 than a real-amp capture is to its amp.
 
+![NAM A2 → A1 Converter](docs/screenshot.png)
+
 ## Download
 
-Grab the latest desktop build from **[Releases](https://github.com/drewmerc302/nam-a2a1-converter/releases)**:
+Latest desktop build — no Python, no setup:
 
-- **macOS** — `nam-a2a1-converter-macos.dmg` (signed + notarized; opens clean).
-- **Windows** — `nam-a2a1-converter-windows.zip` (unzip, run `nam-a2a1-converter.exe`).
-  It's **unsigned**, so Windows SmartScreen will warn: click **More info → Run anyway**.
-  Some antivirus may flag PyInstaller apps; it's a false positive.
+- **macOS** — [**nam-a2a1-converter-macos.dmg**](https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-macos.dmg)
+  — signed + notarized, opens clean.
+- **Windows** — [**nam-a2a1-converter-windows.zip**](https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-windows.zip)
+  — unzip, run `nam-a2a1-converter.exe`. It's **unsigned**, so SmartScreen warns:
+  click **More info → Run anyway**. Some antivirus may flag PyInstaller apps — false positive.
 
-Launch it, drop an A2 `.nam`, pick a quality preset, hit Convert. Output lands in
-`~/NAM-A2A1-out/`. Load the resulting A1 `.nam` on your device (e.g. import into
-Valeton Suite → it converts to a SnapTone and pushes to the pedal).
+All releases: [github.com/drewmerc302/nam-a2a1-converter/releases](https://github.com/drewmerc302/nam-a2a1-converter/releases)
 
-**First convert is slow on a stock machine** (no GPU → CPU training). A live progress
-bar with an ETA shows how long it's got left; you can cancel anytime.
+## Using it
+
+1. **Launch** the app — it opens a converter page in your browser.
+2. **Drop** one or more A2 `.nam` captures (or **Choose files**). Batches convert one after another.
+3. Pick a **quality preset** (Draft / Standard / Best) and hit **Convert A2 → A1**.
+4. Watch the live **progress bar + ETA**; **Cancel** anytime.
+5. **Download** each result — A1 `.nam` files also land in `~/NAM-A2A1-out/`.
+6. Load the A1 `.nam` on your device — e.g. import into **Valeton Suite**, which converts
+   it to a SnapTone and pushes it to the pedal.
+
+**First convert is slowest** on a machine with no GPU (CPU training — a few minutes at
+Standard). The ETA tells you how long is left.
 
 ## Quality presets
 
