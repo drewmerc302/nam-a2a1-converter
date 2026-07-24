@@ -38,12 +38,28 @@ def main() -> None:
 
         sys.argv = ["train", *argv[1:]]
         train_a1_070.main()
+    elif cmd == "selftest":
+        # Force the full import graph so a frozen build fails HERE (runnable in CI)
+        # on any missing bundled module, instead of at a user's first convert.
+        import importlib
+
+        for mod in (
+            "nam_a2a1.server",
+            "nam_a2a1.engine",
+            "nam_a2a1.api",
+            "nam_a2a1.pipeline.render_a2",
+            "nam_a2a1.pipeline.train_a1_070",
+            "nam_a2a1.pipeline.nam_transcode",
+            "nam_a2a1.pipeline.distill_protocol",
+        ):
+            importlib.import_module(mod)
+        print("selftest OK")
     elif cmd in ("serve", ""):
         from nam_a2a1.server import serve
 
         serve()
     else:
-        sys.exit(f"unknown command {cmd!r} (expected serve|render|train)")
+        sys.exit(f"unknown command {cmd!r} (expected serve|render|train|selftest)")
 
 
 if __name__ == "__main__":

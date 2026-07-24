@@ -42,6 +42,17 @@ jobs:
         shell: bash
         run: pyinstaller --noconfirm build/nam-a2a1-converter.spec
 
+      # Run the FROZEN binary to force the full import graph — catches missing
+      # bundled modules (tkinter, matplotlib, torch bits) in CI, not on a user's box.
+      - name: Smoke-test frozen imports
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "win" ]; then
+            "dist/nam-a2a1-converter/nam-a2a1-converter.exe" selftest
+          else
+            "dist/nam-a2a1-converter/nam-a2a1-converter" selftest
+          fi
+
       # ---------- Windows: zip the onedir ----------
       - name: Package (Windows)
         if: matrix.platform == 'win'
