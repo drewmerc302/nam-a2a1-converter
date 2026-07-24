@@ -76,15 +76,22 @@ jobs:
             security import cert.p12 -k "$KEYCHAIN" -P "$CERT_PW" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PW" "$KEYCHAIN"
 
-            IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -o '"Developer ID Application.*"' | head -1 | tr -d '"')
+            # Sign by the identity's SHA-1 hash (robust to a cosmetic key label like
+            # "jobPilot signing"), and require it to be a Developer ID Application cert.
+            security find-identity -v -p codesigning "$KEYCHAIN"
+            IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -m1 -oE '[0-9A-F]{40}')
             if [ -z "$IDENTITY" ]; then
-              echo "::error::No 'Developer ID Application' identity in the .p12. \
-Re-export the RIGHT cert from Keychain (Developer ID Application, WITH its private key) \
-into MACOS_CERT_P12_BASE64. Identities actually found:"
-              security find-identity -v -p codesigning "$KEYCHAIN"
+              echo "::error::No codesigning identity in the .p12. Export the CERTIFICATE \
+row 'Developer ID Application …' (not the private-key row) from Keychain into \
+MACOS_CERT_P12_BASE64."
               exit 1
             fi
-            echo "using identity: $IDENTITY"
+            if ! security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "Developer ID Application"; then
+              echo "::error::The imported identity is not a 'Developer ID Application' cert \
+— notarization will reject it. Export the Developer ID Application certificate."
+              exit 1
+            fi
+            echo "using identity hash: $IDENTITY"
 
             # Sign EVERY Mach-O binary (not just .dylib/.so), inner ones first, with
             # hardened runtime + a secure timestamp — anything unsigned fails notarization.
