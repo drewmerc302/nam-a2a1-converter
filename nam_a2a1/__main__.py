@@ -6,12 +6,27 @@ source checkout, or as the frozen executable re-invoking itself.
     train   DI Y OUT ...  train + export an A1, transcode to 0.5.x
 """
 
+import os
 import sys
+
+
+def _reopen_stdout_utf8() -> None:
+    """A windowed PyInstaller build (console=False) sets sys.stdout to None, but the
+    parent engine hands render/train workers a pipe on fd 1 and parses their stdout.
+    Reopen fd 1 as UTF-8 so emit_progress/emit_format/print reach the parent on every
+    OS, regardless of the windowed bootloader or the console code page."""
+    try:
+        sys.stdout = os.fdopen(1, "w", encoding="utf-8", buffering=1, closefd=False)
+    except OSError:
+        pass
 
 
 def main() -> None:
     argv = sys.argv[1:]
     cmd = argv[0] if argv else "serve"
+
+    if cmd in ("render", "train"):
+        _reopen_stdout_utf8()
 
     if cmd == "render":
         from nam_a2a1.pipeline import render_a2

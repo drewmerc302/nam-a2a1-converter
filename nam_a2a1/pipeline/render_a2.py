@@ -27,7 +27,7 @@ CHUNK = 480_000  # 10 s at 48 kHz; bounds peak memory for long files / big model
 
 
 def load_teacher(nam_path):
-    with open(nam_path) as fp:
+    with open(nam_path, encoding="utf-8") as fp:
         d = json.load(fp)
     arch = d.get("architecture")
     top_sr = d.get("sample_rate", 48000)

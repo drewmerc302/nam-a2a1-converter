@@ -140,10 +140,10 @@ def transcode_070_to_05x(model: Dict[str, Any]) -> Dict[str, Any]:
 
 def transcode_file(src_path: str, dst_path: str) -> Dict[str, Any]:
     """Read a 0.7.0 .nam, write its 0.5.x transcode, return the 0.5.x dict."""
-    with open(src_path) as fp:
+    with open(src_path, encoding="utf-8") as fp:
         model = json.load(fp)
     low = transcode_070_to_05x(model)
-    with open(dst_path, "w") as fp:
+    with open(dst_path, "w", encoding="utf-8") as fp:
         json.dump(low, fp)
     return low
 

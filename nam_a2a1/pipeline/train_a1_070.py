@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 """
-Stage 2 (0.7.0 variant) of the A2->A1 pipeline: train a standard A1 WaveNet to
-match the rendered teacher audio, and export a 0.7.0-format .nam.
+Stage 2 of the A2->A1 pipeline: train a standard A1 WaveNet to match the rendered
+teacher audio, export it, and (with --format 0.5x) transcode down to the 0.5.x
+format A1-only devices accept.
 
-RUN THIS WITH THE 0.13.0 VENV (.venv). Version matters: 0.13.0+ exports the
-0.7.0 .nam format (newer devices only). For 0.5.x output, use
-a2a1/train_a1.py under .venv-a1/0.12.2 instead — that path is unchanged.
-
-The 0.13.0 WaveNet model_config uses a different (newer) schema than 0.12.2:
-each layers_configs entry has a nested "head" rechannel object
-({"out_channels", "kernel_size", "bias"}) instead of the old flat
-head_size/gated/head_bias keys.
+Runs on NAM 0.13.0. 0.13.0 natively exports the 0.7.0 .nam format; the 0.5.x
+output is produced in-process by nam_a2a1/pipeline/nam_transcode.py (weights are
+byte-identical across the two formats for a standard WaveNet; only the config
+schema is reshaped — no retraining, no second environment).
 
 Inputs:
     di.wav  = the exact DI used in Stage 1 (x)
@@ -101,9 +98,10 @@ def data_config(di: str, y: str, n_samples: int) -> dict:
 
 
 def learning_config(epochs: int) -> dict:
+    _mps = getattr(torch.backends, "mps", None)
     if torch.cuda.is_available():
         dev = {"accelerator": "gpu", "devices": 1}
-    elif torch.backends.mps.is_available():
+    elif _mps is not None and _mps.is_available():
         dev = {"accelerator": "mps", "devices": 1}
     else:
         dev = {}
@@ -111,7 +109,8 @@ def learning_config(epochs: int) -> dict:
         "train_dataloader": {
             "batch_size": 16,
             "shuffle": True,
-            "pin_memory": True,
+            # pin_memory only helps CUDA; it's a no-op warning on CPU/MPS.
+            "pin_memory": torch.cuda.is_available(),
             "drop_last": True,
             "num_workers": 0,
         },
@@ -127,7 +126,7 @@ def esr(pred: np.ndarray, target: np.ndarray) -> float:
 
 
 def validate_format(nam_path: Path) -> str:
-    with open(nam_path) as fp:
+    with open(nam_path, encoding="utf-8") as fp:
         d = json.load(fp)
     ver = d.get("version", "?")
     arch = d.get("architecture")
@@ -216,7 +215,7 @@ def main():
         x = x[:, 0]
     if yt.ndim > 1:
         yt = yt[:, 0]
-    with open(exported) as fp:
+    with open(exported, encoding="utf-8") as fp:
         student = init_from_nam(json.load(fp))
     student.eval()
     start = max(0, split - WARMUP)

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -106,10 +107,37 @@ class ConvertJob:
             pass
 
 
+_ILLEGAL = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_WIN_RESERVED = {
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{i}" for i in range(1, 10)),
+    *(f"LPT{i}" for i in range(1, 10)),
+}
+
+
+def _safe_stem(name: str) -> str:
+    """Make a file stem safe on Windows: strip illegal chars, reserved names, and
+    trailing dots/spaces. Used only for on-disk paths; display keeps the original."""
+    cleaned = _ILLEGAL.sub("_", name).rstrip(" .")
+    if not cleaned or cleaned.upper() in _WIN_RESERVED:
+        cleaned = f"_{cleaned}" if cleaned else "capture"
+    return cleaned
+
+
 def detect_architecture(nam_path: Path) -> Tuple[Optional[str], str]:
-    with open(nam_path) as fp:
+    with open(nam_path, encoding="utf-8") as fp:
         d = json.load(fp)
     return d.get("architecture"), str(d.get("version", "?"))
+
+
+def _worker_env() -> dict:
+    # Force UTF-8 in the worker so stdout (the progress/ESR channel) and .nam reads
+    # don't fall back to the Windows console/locale code page (cp1252) on non-ASCII
+    # usernames or preset names.
+    return {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
 
 
 def _popen(cmd: List[str], job: ConvertJob) -> Optional[subprocess.Popen]:
@@ -128,7 +156,10 @@ def _popen(cmd: List[str], job: ConvertJob) -> Optional[subprocess.Popen]:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             bufsize=1,
+            env=_worker_env(),
             **kwargs,
         )
         job._current_proc = proc
@@ -190,7 +221,7 @@ def _convert_one(
 
     if arch == "WaveNet" and version.startswith("0.5"):
         job.out_dir.mkdir(parents=True, exist_ok=True)
-        dest = job.out_dir / f"{state.name}.nam"
+        dest = job.out_dir / f"{_safe_stem(state.name)}.nam"
         try:
             shutil.copyfile(src, dest)
         except Exception as e:
@@ -216,7 +247,8 @@ def _convert_one(
         )
         return
 
-    with tempfile.TemporaryDirectory(prefix=f"nam_{state.name}_") as workdir_s:
+    safe = _safe_stem(state.name)
+    with tempfile.TemporaryDirectory(prefix=f"nam_{safe}_") as workdir_s:
         workdir = Path(workdir_s)
         y_wav = workdir / "y.wav"
 
@@ -308,7 +340,7 @@ def _convert_one(
             return
 
         job.out_dir.mkdir(parents=True, exist_ok=True)
-        dest = job.out_dir / f"{state.name}.nam"
+        dest = job.out_dir / f"{_safe_stem(state.name)}.nam"
         try:
             shutil.copyfile(a1, dest)
         except Exception as e:

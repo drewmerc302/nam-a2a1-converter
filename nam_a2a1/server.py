@@ -4,6 +4,7 @@ the browser. This is what the desktop launch (double-click the app) runs."""
 from __future__ import annotations
 
 import socket
+import sys
 import threading
 import webbrowser
 
@@ -44,5 +45,8 @@ def serve(
     url = f"http://{host}:{port}/"
     if open_browser:
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
-    print(f"NAM A2→A1 Converter running at {url}  (Ctrl+C to quit)")
+    # In a windowed (console=False) frozen build sys.stdout is None; guard the print
+    # and keep it ASCII so it can't crash launch on a non-UTF-8 console.
+    if sys.stdout is not None:
+        print(f"NAM A2->A1 Converter running at {url}  (Ctrl+C to quit)")
     uvicorn.run(app, host=host, port=port, log_level="warning")
