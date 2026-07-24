@@ -3,6 +3,8 @@ the browser. This is what the desktop launch (double-click the app) runs."""
 
 from __future__ import annotations
 
+import contextlib
+import os
 import socket
 import sys
 import threading
@@ -35,6 +37,44 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+@contextlib.contextmanager
+def _unbundled_env():
+    """Temporarily undo PyInstaller's LD_LIBRARY_PATH injection.
+
+    The Linux bootloader prepends the bundle dir to LD_LIBRARY_PATH (stashing the
+    original in LD_LIBRARY_PATH_ORIG) and every child inherits it. That is what the
+    render/train workers want — they ARE the frozen exe — but a child that is NOT this
+    app resolves its DT_NEEDED against our bundled libstdc++/libfreetype/libssl first.
+    So xdg-open and the browser it launches can die with e.g. "version GLIBCXX_3.4.32
+    not found", and the user just sees a browser that never opened. macOS is immune
+    (SIP strips DYLD_* across spawn) and Windows has no equivalent; this is Linux-only,
+    but the restore is a no-op elsewhere so it needs no platform guard.
+    """
+    saved = os.environ.get("LD_LIBRARY_PATH")
+    orig = os.environ.get("LD_LIBRARY_PATH_ORIG")
+    if orig is not None:
+        os.environ["LD_LIBRARY_PATH"] = orig
+    else:
+        os.environ.pop("LD_LIBRARY_PATH", None)
+    try:
+        yield
+    finally:
+        if saved is None:
+            os.environ.pop("LD_LIBRARY_PATH", None)
+        else:
+            os.environ["LD_LIBRARY_PATH"] = saved
+
+
+def _open_browser(url: str) -> None:
+    try:
+        with _unbundled_env():
+            opened = webbrowser.open(url)
+    except Exception:  # noqa: BLE001 - a failed browser launch must not kill the server
+        opened = False
+    if not opened and sys.stdout is not None:
+        print(f"Could not open a browser automatically. Open this URL manually: {url}")
+
+
 def serve(
     host: str = "127.0.0.1", port: int | None = None, open_browser: bool = True
 ) -> None:
@@ -44,7 +84,7 @@ def serve(
         port = _free_port()
     url = f"http://{host}:{port}/"
     if open_browser:
-        threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+        threading.Timer(1.0, lambda: _open_browser(url)).start()
     # In a windowed (console=False) frozen build sys.stdout is None; guard the print
     # and keep it ASCII so it can't crash launch on a non-UTF-8 console.
     if sys.stdout is not None:

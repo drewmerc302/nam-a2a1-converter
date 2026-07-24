@@ -5,6 +5,7 @@ build/pyi/
 dist/
 *.dmg
 *.zip
+*.tar.gz
 # conversion output
 NAM-A2A1-out/
 .DS_Store

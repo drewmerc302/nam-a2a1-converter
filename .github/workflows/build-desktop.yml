@@ -1,9 +1,9 @@
 name: build-desktop
 
-# Builds the frozen converter for Windows (.zip, unsigned) and macOS (.dmg,
-# signed + notarized when Apple secrets are present). Runs on a v* tag and
-# attaches the artifacts to the GitHub Release. Can also be run manually to
-# smoke-test the freeze (artifacts uploaded to the run, not a release).
+# Builds the frozen converter for Windows (.zip, unsigned), macOS (.dmg, signed +
+# notarized when Apple secrets are present), and Linux x86_64 (.tar.gz, unsigned).
+# Runs on a v* tag and attaches the artifacts to the GitHub Release. Can also be run
+# manually to smoke-test the freeze (artifacts uploaded to the run, not a release).
 on:
   push:
     tags: ["v*"]
@@ -22,13 +22,36 @@ jobs:
             platform: win
           - os: macos-latest
             platform: mac
+          # Pinned deliberately, NOT ubuntu-latest. A Linux binary's build-time glibc
+          # is a *minimum* for the user, not a match requirement: setup-python installs
+          # a per-runner-image CPython whose libpython/stdlib .so's carry that image's
+          # GLIBC_* symbol versions, and PyInstaller collects them verbatim. Building on
+          # 24.04 (glibc 2.39) would produce a binary that refuses to start on Ubuntu
+          # 22.04 / Mint 21 / Debian 12 — most of the installed base. 22.04 = glibc 2.35.
+          - os: ubuntu-22.04
+            platform: linux
     runs-on: ${{ matrix.os }}
+    env:
+      # Highest GLIBC_* symbol version the Linux build may require. Enforced below so a
+      # runner-image bump can't silently raise the floor and strand users.
+      LINUX_GLIBC_FLOOR: "2.35"
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      # neural-amp-modeler imports tkinter at module load (nam/train/core.py), and
+      # nam.models pulls nam.train transitively — so the freeze must be able to collect
+      # _tkinter. The tool-cache CPython links it against the SYSTEM Tcl/Tk, which the
+      # runner image does not ship; without this the frozen selftest fails on import.
+      - name: Install Tcl/Tk (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libtk8.6 libtcl8.6
+          python -c "import tkinter; print('tk', tkinter.TkVersion)"
 
       - name: Install deps (CPU torch)
         shell: bash
@@ -52,6 +75,48 @@ jobs:
           else
             "dist/nam-a2a1-converter/nam-a2a1-converter" selftest
           fi
+
+      # soundfile resolves its native lib at import: it imports the SEPARATE top-level
+      # package `_soundfile_data` and loads libsndfile_<machine>.so from it — and on any
+      # failure falls back SILENTLY to the system libsndfile via ctypes.util.find_library.
+      # The runner has a system libsndfile, so a bundle that's missing it still passes the
+      # selftest and then dies on the user's machine at the first render. Assert it here.
+      - name: Verify libsndfile is bundled (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          want="dist/nam-a2a1-converter/_internal/_soundfile_data/libsndfile_$(uname -m).so"
+          if [ ! -f "$want" ]; then
+            echo "::error::missing $want — soundfile would fall back to the system libsndfile, which users don't have. Found instead:"
+            find dist/nam-a2a1-converter -name 'libsndfile*' -o -name '_soundfile_data' || true
+            exit 1
+          fi
+          echo "ok: $want"
+
+      # Guard the glibc floor. The binary runs on the build image's glibc *or newer*, so
+      # the highest GLIBC_* symbol version anything in the bundle imports IS the minimum
+      # distro version. Fails loudly if a runner-image change pushes it past the floor.
+      - name: Verify glibc floor (Linux)
+        run: |
+          max=$(find dist/nam-a2a1-converter -type f \
+                  \( -name '*.so' -o -name '*.so.*' -o -name 'nam-a2a1-converter' \) -print0 \
+                | xargs -0 -r objdump -T 2>/dev/null \
+                | grep -oE 'GLIBC_[0-9]+\.[0-9]+(\.[0-9]+)?' | sed 's/GLIBC_//' \
+                | sort -uV | tail -1)
+          echo "highest required glibc: ${max:-none} (floor $LINUX_GLIBC_FLOOR)"
+          if [ -n "$max" ] && [ "$(printf '%s\n%s\n' "$LINUX_GLIBC_FLOOR" "$max" | sort -V | tail -1)" != "$LINUX_GLIBC_FLOOR" ]; then
+            echo "::error::bundle requires glibc $max > floor $LINUX_GLIBC_FLOOR — it will not start on the distros this build targets"
+            exit 1
+          fi
+        if: matrix.platform == 'linux'
+
+      # ---------- Linux: tar the onedir ----------
+      # tar, NOT zip: Compress-Archive drops Unix mode bits, and actions/upload-artifact
+      # re-zips its input without preserving permissions. Either one strips the exec bit
+      # and the user gets "Permission denied". tar stores the mode inside the archive, so
+      # it survives the artifact re-zip intact.
+      - name: Package (Linux)
+        if: matrix.platform == 'linux'
+        run: tar -czf nam-a2a1-converter-linux-x86_64.tar.gz -C dist nam-a2a1-converter
 
       # ---------- Windows: zip the onedir ----------
       - name: Package (Windows)
@@ -139,6 +204,7 @@ jobs:
           path: |
             nam-a2a1-converter-windows.zip
             nam-a2a1-converter-macos.dmg
+            nam-a2a1-converter-linux-x86_64.tar.gz
           if-no-files-found: ignore
 
       - name: Attach to release
@@ -148,4 +214,5 @@ jobs:
           files: |
             nam-a2a1-converter-windows.zip
             nam-a2a1-converter-macos.dmg
+            nam-a2a1-converter-linux-x86_64.tar.gz
           fail_on_unmatched_files: false
