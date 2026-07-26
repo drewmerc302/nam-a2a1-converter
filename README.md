@@ -42,18 +42,28 @@ Latest desktop build — no Python, no setup:
 
 All releases: [github.com/drewmerc302/nam-a2a1-converter/releases](https://github.com/drewmerc302/nam-a2a1-converter/releases)
 
-### Faster training on an NVIDIA GPU (Windows)
+### GPU acceleration
 
-The downloads above train on the **CPU**. A NAM convert that takes ~40 minutes on a CPU
-takes a small fraction of that on a GPU, so if you have an NVIDIA card there is a second
-Windows build compiled against CUDA.
+Training is much faster on a GPU. What you need to do depends on the machine:
 
-It is a separate download on purpose: the CUDA build is **~2.6 GiB** against the standard
-build's ~350 MiB, and Mac, AMD and Intel machines cannot use a byte of it. The app tells
-you if it applies to you — if it finds an NVIDIA card it cannot use, it shows a banner
-linking here. No banner means you are already as fast as this tool gets.
+| Machine | What to do |
+| --- | --- |
+| **Apple silicon (M1/M2/M3/M4)** | **Nothing.** The macOS build above already trains on the GPU via Metal (MPS). No extra download, no setting, no opt-in. |
+| **Windows + NVIDIA** | Get the **CUDA build** below. |
+| **Intel Mac, AMD / Intel GPUs** | CPU only — no GPU path today. |
 
-**Apple silicon needs nothing** — the macOS build already trains on the GPU via Metal.
+**You do not have to work out which row you are.** The app checks on launch: if it finds an
+NVIDIA card the current build cannot use, it shows a banner linking to the CUDA build. No
+banner means you are already as fast as this tool gets. (That banner is what you can see at
+the top of this page.)
+
+#### The CUDA build (Windows + NVIDIA)
+
+Same app, compiled against CUDA instead of CPU-only PyTorch. A convert that takes ~40
+minutes on a CPU takes a small fraction of that.
+
+It is a separate download on purpose: **~2.6 GiB** against the standard build's ~350 MiB,
+and Mac, AMD and Intel machines cannot use a byte of it.
 
 GitHub caps one release file at 2 GiB, so the CUDA build ships as numbered parts that you
 rejoin. Easiest way — download
