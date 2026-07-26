@@ -12,10 +12,20 @@ from typing import Callable, Dict, List
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from nam_a2a1 import engine
+from nam_a2a1 import accel, engine
 from nam_a2a1.engine import ConvertJob, FileState
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/accel")
+def get_accel() -> dict:
+    """What the converter will train on, and whether a faster build exists for this
+    machine. Deliberately a plain `def`: accel.status() shells out to a worker that
+    imports torch, so FastAPI runs it in the threadpool instead of stalling the event
+    loop for the few seconds that takes. Cached after the first call."""
+    return accel.status()
+
 
 WORK_DIR = Path.home() / "NAM-A2A1-out" / ".jobs"
 

@@ -364,6 +364,53 @@
   convertBtn.addEventListener("click", submitJob);
   if (cancelBtn) cancelBtn.addEventListener("click", cancelJob);
 
+  // ---- GPU tip -------------------------------------------------------------
+  // Fire-and-forget: /api/accel shells out to a worker that imports torch, so the
+  // first call takes a few seconds. Nothing here blocks converting, and a failure
+  // just leaves the banner hidden — a missing tip is not worth an error to the user.
+  function renderAccelBanner(info) {
+    const el = document.getElementById("accel-banner");
+    if (!el || !info || !info.upgrade_available || !info.download_url) return;
+    const gpu = info.gpu || {};
+    const name = gpu.name || "An NVIDIA GPU";
+    el.innerHTML = "";
+
+    const lead = document.createElement("span");
+    lead.innerHTML = `<b>${escapeHtml(name)} detected.</b> This build trains on the CPU.`;
+
+    const link = document.createElement("a");
+    link.href = info.download_url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = "Get the CUDA build →";
+
+    const detail = document.createElement("span");
+    detail.className = "accel-detail";
+    detail.textContent = "(much faster, ~2.6 GB download)";
+
+    el.append(lead, link, detail);
+    el.hidden = false;
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c]
+    );
+  }
+
+  fetch("/api/accel")
+    .then((r) => (r.ok ? r.json() : null))
+    .then(renderAccelBanner)
+    .catch(() => {});
+
   syncPresetActive();
   renderFileList();
 })();

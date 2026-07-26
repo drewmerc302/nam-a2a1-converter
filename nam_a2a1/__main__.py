@@ -4,6 +4,7 @@ source checkout, or as the frozen executable re-invoking itself.
     (no args) | serve     start the local web app + open the browser
     render  A2 DI OUT     render a DI through an A2 model -> teacher wav
     train   DI Y OUT ...  train + export an A1, transcode to 0.5.x
+    accel                 print one JSON line describing what torch can use
 """
 
 import os
@@ -109,6 +110,34 @@ def main() -> None:
 
         sys.argv = ["train", *argv[1:]]
         train_a1_070.main()
+    elif cmd == "accel":
+        # Runs in a throwaway process precisely so the UI process never pays torch's
+        # import cost or RSS just to render a banner. Must stay a single JSON line:
+        # nam_a2a1.accel scans stdout for it, and torch/lightning are free to print
+        # warnings around it.
+        import json
+
+        import torch
+
+        _mps = getattr(torch.backends, "mps", None)
+        if torch.cuda.is_available():
+            backend = "cuda"
+        elif _mps is not None and _mps.is_available():
+            backend = "mps"
+        else:
+            backend = "cpu"
+        print(
+            json.dumps(
+                {
+                    "backend": backend,
+                    # torch.version.cuda is set by the wheel, not the machine: it says
+                    # whether CUDA kernels were shipped, which is the half of the
+                    # question the hardware probe cannot answer.
+                    "cuda_build": bool(getattr(torch.version, "cuda", None)),
+                    "torch": torch.__version__,
+                }
+            )
+        )
     elif cmd == "selftest":
         # Force the full import graph so a frozen build fails HERE (runnable in CI)
         # on any missing bundled module, instead of at a user's first convert.

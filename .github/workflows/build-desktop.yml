@@ -1,9 +1,11 @@
 name: build-desktop
 
-# Builds the frozen converter for Windows (.zip, unsigned), macOS (.dmg, signed +
-# notarized when Apple secrets are present), and Linux x86_64 (.tar.gz, unsigned).
+# Builds the frozen converter for Windows (.zip, unsigned), Windows + CUDA (.zip,
+# unsigned), macOS (.dmg, signed + notarized when Apple secrets are present), and
+# Linux x86_64 (.tar.gz, unsigned).
 # Runs on a v* tag and attaches the artifacts to the GitHub Release. Can also be run
-# manually to smoke-test the freeze (artifacts uploaded to the run, not a release).
+# manually to smoke-test the freeze (artifacts uploaded to the run, not a release) —
+# do that first after touching the CUDA leg, to read its real packaged size.
 on:
   push:
     tags: ["v*"]
@@ -20,8 +22,22 @@ jobs:
         include:
           - os: windows-latest
             platform: win
+            torch_index: cpu
+            artifact: nam-a2a1-converter-windows.zip
+          # Same build, CUDA torch instead of CPU torch. Shipped as a SEPARATE download
+          # rather than folded into the default: the cu126 wheel is ~2.6 GB against the
+          # CPU wheel's ~122 MB, so a single universal bundle would make every Mac, AMD
+          # and Intel user pay for kernels they cannot run. The app detects an unusable
+          # NVIDIA card at runtime (nam_a2a1/accel.py) and links here.
+          - os: windows-latest
+            platform: win-cuda
+            torch_index: cu126
+            artifact: nam-a2a1-converter-windows-cuda.zip
           - os: macos-latest
             platform: mac
+            # macOS wheels carry MPS support in the standard build, so Apple silicon is
+            # already GPU-accelerated with no CUDA leg needed.
+            torch_index: cpu
           # Pinned deliberately, NOT ubuntu-latest. A Linux binary's build-time glibc
           # is a *minimum* for the user, not a match requirement: setup-python installs
           # a per-runner-image CPython whose libpython/stdlib .so's carry that image's
@@ -30,6 +46,7 @@ jobs:
           # 22.04 / Mint 21 / Debian 12 — most of the installed base. 22.04 = glibc 2.35.
           - os: ubuntu-22.04
             platform: linux
+            torch_index: cpu
     runs-on: ${{ matrix.os }}
     env:
       # Highest GLIBC_* symbol version the Linux build may require. Enforced below so a
@@ -53,13 +70,14 @@ jobs:
           sudo apt-get install -y libtk8.6 libtcl8.6
           python -c "import tkinter; print('tk', tkinter.TkVersion)"
 
-      - name: Install deps (CPU torch)
+      - name: Install deps (${{ matrix.torch_index }} torch)
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install torch --index-url https://download.pytorch.org/whl/${{ matrix.torch_index }}
           pip install -r requirements.txt
           pip install pyinstaller
+          python -c "import torch; print('torch', torch.__version__, 'cuda build:', torch.version.cuda)"
 
       - name: Freeze
         shell: bash
@@ -70,10 +88,22 @@ jobs:
       - name: Smoke-test frozen imports
         shell: bash
         run: |
-          if [ "${{ matrix.platform }}" = "win" ]; then
-            "dist/nam-a2a1-converter/nam-a2a1-converter.exe" selftest
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            EXE="dist/nam-a2a1-converter/nam-a2a1-converter.exe"
           else
-            "dist/nam-a2a1-converter/nam-a2a1-converter" selftest
+            EXE="dist/nam-a2a1-converter/nam-a2a1-converter"
+          fi
+          "$EXE" selftest
+          # The accel probe is what the UI's GPU banner is built on; assert the frozen
+          # exe answers it, and that the CUDA leg really did bundle CUDA torch. A cu126
+          # build that silently froze the CPU wheel would ship a 2.6 GB download that
+          # trains no faster than the default one.
+          echo "accel: $("$EXE" accel)"
+          if [ "${{ matrix.torch_index }}" != "cpu" ]; then
+            "$EXE" accel | grep -q '"cuda_build": true' || {
+              echo "::error::${{ matrix.platform }} bundle reports cuda_build=false — it froze a non-CUDA torch"
+              exit 1
+            }
           fi
 
       # soundfile resolves its native lib at import: it imports the SEPARATE top-level
@@ -118,12 +148,24 @@ jobs:
         if: matrix.platform == 'linux'
         run: tar -czf nam-a2a1-converter-linux-x86_64.tar.gz -C dist nam-a2a1-converter
 
-      # ---------- Windows: zip the onedir ----------
+      # ---------- Windows: zip the onedir (both the CPU and CUDA legs) ----------
+      # 7z, NOT Compress-Archive: the latter is documented to top out around 2 GB
+      # (System.IO.Compression limits), and the CUDA bundle is comfortably past that.
+      # 7z is preinstalled on the Windows runners and -tzip keeps the output a plain
+      # .zip that Explorer opens with no extra tooling.
       - name: Package (Windows)
-        if: matrix.platform == 'win'
+        if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path dist/nam-a2a1-converter/* -DestinationPath nam-a2a1-converter-windows.zip
+          7z a -tzip -mx=5 "${{ matrix.artifact }}" ".\dist\nam-a2a1-converter\*"
+          $mb = (Get-Item "${{ matrix.artifact }}").Length / 1MB
+          "{0} -> {1:N0} MB" -f "${{ matrix.artifact }}", $mb
+          # GitHub caps a single release asset at 2 GiB. Fail here with the real number
+          # rather than at upload time, so a tag doesn't half-publish a release.
+          if ($mb -gt 2000) {
+            Write-Output "::error::${{ matrix.artifact }} is $([math]::Round($mb)) MB — over GitHub's ~2 GiB release-asset cap. It needs split volumes or external hosting before this can be attached to a release."
+            exit 1
+          }
 
       # ---------- macOS: sign + dmg + notarize ----------
       - name: Package (macOS)
@@ -203,6 +245,7 @@ jobs:
           name: nam-a2a1-converter-${{ matrix.platform }}
           path: |
             nam-a2a1-converter-windows.zip
+            nam-a2a1-converter-windows-cuda.zip
             nam-a2a1-converter-macos.dmg
             nam-a2a1-converter-linux-x86_64.tar.gz
           if-no-files-found: ignore
@@ -213,6 +256,7 @@ jobs:
         with:
           files: |
             nam-a2a1-converter-windows.zip
+            nam-a2a1-converter-windows-cuda.zip
             nam-a2a1-converter-macos.dmg
             nam-a2a1-converter-linux-x86_64.tar.gz
           fail_on_unmatched_files: false
