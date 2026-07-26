@@ -42,6 +42,44 @@ Latest desktop build — no Python, no setup:
 
 All releases: [github.com/drewmerc302/nam-a2a1-converter/releases](https://github.com/drewmerc302/nam-a2a1-converter/releases)
 
+### Faster training on an NVIDIA GPU (Windows)
+
+The downloads above train on the **CPU**. A NAM convert that takes ~40 minutes on a CPU
+takes a small fraction of that on a GPU, so if you have an NVIDIA card there is a second
+Windows build compiled against CUDA.
+
+It is a separate download on purpose: the CUDA build is **~2.6 GiB** against the standard
+build's ~350 MiB, and Mac, AMD and Intel machines cannot use a byte of it. The app tells
+you if it applies to you — if it finds an NVIDIA card it cannot use, it shows a banner
+linking here. No banner means you are already as fast as this tool gets.
+
+**Apple silicon needs nothing** — the macOS build already trains on the GPU via Metal.
+
+GitHub caps one release file at 2 GiB, so the CUDA build ships as numbered parts that you
+rejoin. Easiest way — download
+[`get-cuda-build.ps1`](scripts/get-cuda-build.ps1) from this repo and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File get-cuda-build.ps1
+```
+
+It fetches the parts, checks them against the published SHA256, rejoins them, and unpacks
+the app. (`-ExecutionPolicy Bypass` is needed because the script is unsigned; it only ever
+downloads from this repo's releases.)
+
+Or do it by hand — the parts are a plain byte split, so `copy /b` rebuilds the zip with no
+extra software:
+
+```cmd
+copy /b nam-a2a1-converter-windows-cuda.zip.001 + nam-a2a1-converter-windows-cuda.zip.002 nam-a2a1-converter-windows-cuda.zip
+```
+
+Then unzip as usual. Verify against `nam-a2a1-converter-windows-cuda.zip.sha256` on the
+release if a convert later fails oddly — a truncated part is the usual cause.
+
+Requires an NVIDIA card of compute capability 5.0+ (GTX 900-series / 2014 or newer) with a
+current driver. Nothing else to install; CUDA itself is inside the bundle.
+
 ## Using it
 
 1. **Launch** the app — it opens a converter page in your browser.

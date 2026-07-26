@@ -158,14 +158,48 @@ jobs:
         shell: pwsh
         run: |
           7z a -tzip -mx=5 "${{ matrix.artifact }}" ".\dist\nam-a2a1-converter\*"
-          $mb = (Get-Item "${{ matrix.artifact }}").Length / 1MB
-          "{0} -> {1:N0} MB" -f "${{ matrix.artifact }}", $mb
-          # GitHub caps a single release asset at 2 GiB. Fail here with the real number
-          # rather than at upload time, so a tag doesn't half-publish a release.
-          if ($mb -gt 2000) {
-            Write-Output "::error::${{ matrix.artifact }} is $([math]::Round($mb)) MB — over GitHub's ~2 GiB release-asset cap. It needs split volumes or external hosting before this can be attached to a release."
-            exit 1
-          }
+          "{0} -> {1:N0} MiB" -f "${{ matrix.artifact }}", ((Get-Item "${{ matrix.artifact }}").Length / 1MB)
+
+      # GitHub caps a SINGLE release asset at 2 GiB, but allows up to 1000 assets with no
+      # cap on total release size — so an oversized bundle ships as parts. Measured
+      # 2026-07-26: the CPU zip is ~353 MiB (one asset), the CUDA zip 2,667 MiB (two).
+      #
+      # Raw byte split, NOT `7z -v` multi-volume: Explorer cannot open a multi-volume zip,
+      # so that route forces every user to install 7-Zip before they can start. Raw parts
+      # rejoin with cmd's built-in `copy /b`, or automatically via get-cuda-build.ps1.
+      - name: Split oversized artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="${{ matrix.artifact }}"
+          LIMIT_MIB=2000   # under 2 GiB with headroom
+          PART_MIB=1400    # keeps the CUDA zip at exactly two parts
+
+          # The ASSEMBLED zip's checksum is the one that matters: it is what the user must
+          # end up with after rejoining, and a silently truncated part is otherwise
+          # undebuggable from the far end of a 2.6 GB download. Per-part sums let them
+          # find WHICH download went wrong instead of refetching everything.
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          size_mib=$(( $(wc -c < "$ZIP") / 1048576 ))
+          if [ "$size_mib" -le "$LIMIT_MIB" ]; then
+            echo "$ZIP is ${size_mib} MiB — fits as a single asset, not splitting"
+            exit 0
+          fi
+
+          echo "$ZIP is ${size_mib} MiB — splitting into ${PART_MIB} MiB parts"
+          split -b "${PART_MIB}m" -d -a 3 --numeric-suffixes=1 "$ZIP" "$ZIP."
+          rm -f "$ZIP"   # do not also upload the whole file; it cannot be attached anyway
+          sha256sum "$ZIP".[0-9][0-9][0-9] | tee -a "$ZIP.sha256"
+          ls -l "$ZIP".[0-9][0-9][0-9]
+          for p in "$ZIP".[0-9][0-9][0-9]; do
+            pm=$(( $(wc -c < "$p") / 1048576 ))
+            [ "$pm" -le "$LIMIT_MIB" ] || {
+              echo "::error::part $p is ${pm} MiB — still over the cap; lower PART_MIB"
+              exit 1
+            }
+          done
 
       # ---------- macOS: sign + dmg + notarize ----------
       - name: Package (macOS)
@@ -246,8 +280,10 @@ jobs:
           path: |
             nam-a2a1-converter-windows.zip
             nam-a2a1-converter-windows-cuda.zip
+            nam-a2a1-converter-windows-cuda.zip.*
             nam-a2a1-converter-macos.dmg
             nam-a2a1-converter-linux-x86_64.tar.gz
+            *.sha256
           if-no-files-found: ignore
 
       - name: Attach to release
@@ -257,6 +293,8 @@ jobs:
           files: |
             nam-a2a1-converter-windows.zip
             nam-a2a1-converter-windows-cuda.zip
+            nam-a2a1-converter-windows-cuda.zip.*
             nam-a2a1-converter-macos.dmg
             nam-a2a1-converter-linux-x86_64.tar.gz
+            *.sha256
           fail_on_unmatched_files: false
