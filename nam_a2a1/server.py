@@ -6,7 +6,6 @@ from __future__ import annotations
 import contextlib
 import os
 import socket
-import sys
 import threading
 import webbrowser
 
@@ -71,7 +70,7 @@ def _open_browser(url: str) -> None:
             opened = webbrowser.open(url)
     except Exception:  # noqa: BLE001 - a failed browser launch must not kill the server
         opened = False
-    if not opened and sys.stdout is not None:
+    if not opened:
         print(f"Could not open a browser automatically. Open this URL manually: {url}")
 
 
@@ -85,8 +84,8 @@ def serve(
     url = f"http://{host}:{port}/"
     if open_browser:
         threading.Timer(1.0, lambda: _open_browser(url)).start()
-    # In a windowed (console=False) frozen build sys.stdout is None; guard the print
-    # and keep it ASCII so it can't crash launch on a non-UTF-8 console.
-    if sys.stdout is not None:
-        print(f"NAM A2->A1 Converter running at {url}  (Ctrl+C to quit)")
+    # __main__._ensure_std_streams guarantees sys.stdout exists (devnull in a windowed
+    # build with no console), so this needs no None guard. Kept ASCII so it can't fail on
+    # a non-UTF-8 console.
+    print(f"NAM A2->A1 Converter running at {url}  (Ctrl+C to quit)")
     uvicorn.run(app, host=host, port=port, log_level="warning")
