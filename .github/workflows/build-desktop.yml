@@ -329,3 +329,50 @@ jobs:
             nam-a2a1-converter-linux-x86_64-cuda.tar.gz.*
             *.sha256
           fail_on_unmatched_files: false
+
+  # Title and body for the release, set ONCE after every build leg has finished.
+  #
+  # This exists because action-gh-release only sets a body when you hand it one, and it
+  # does NOT fall back to the tag annotation — so every release this workflow has ever
+  # cut had an EMPTY body. v0.3.0 only looks written-up because someone typed it into
+  # the web UI afterwards; v0.4.0 shipped blank and was fixed by hand.
+  #
+  # A separate job rather than a step in `build`: the attach step runs in all five matrix
+  # legs, so setting the body there would have five jobs racing to write the same field.
+  # `needs: build` also means the notes land only if every platform actually built.
+  release-notes:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # fetch-depth: 0 so the annotated tag OBJECT is present, not just the commit —
+      # `git tag -l --format` reads the annotation message, which is where the title
+      # comes from.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set release title and notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          NOTES="docs/release-notes/${TAG}.md"
+
+          # Title = the annotated tag's subject line, so it is written once, at tag time,
+          # and cannot drift from the tag it describes.
+          TITLE=$(git tag -l --format='%(contents:subject)' "$TAG")
+          [ -n "$TITLE" ] || TITLE="$TAG"
+
+          if [ -f "$NOTES" ]; then
+            echo "release body from $NOTES"
+            gh release edit "$TAG" --title "$TITLE" --notes-file "$NOTES"
+          else
+            # Better than blank, and loud enough to notice: writing the notes file is the
+            # intended path, so say so rather than silently shipping a commit list.
+            echo "::warning::no $NOTES — falling back to the auto-generated changelog. Add docs/release-notes/${TAG}.md for a real write-up."
+            gh release edit "$TAG" --title "$TITLE" --generate-notes
+          fi

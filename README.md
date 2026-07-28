@@ -174,8 +174,11 @@ pyinstaller --noconfirm build/nam-a2a1-converter.spec
 # dist/nam-a2a1-converter/  → the frozen onedir app
 ```
 
-CI (`.github/workflows/build-desktop.yml`) builds both platforms on a `v*` tag and
-attaches them to the Release. macOS signing/notarization needs these repo secrets:
+CI (`.github/workflows/build-desktop.yml`) builds every platform on a `v*` tag and
+attaches them to the Release. Write the release notes to `docs/release-notes/<tag>.md`
+**before** pushing the tag — CI uses that file as the release body and the annotated
+tag's subject line as the release title. Without the file you get GitHub's generated
+commit list and a warning in the run. macOS signing/notarization needs these repo secrets:
 `MACOS_CERT_P12_BASE64`, `MACOS_CERT_PASSWORD`, `MACOS_KEYCHAIN_PASSWORD`,
 `APPLE_TEAM_ID`, `APPLE_API_KEY_ID`, `APPLE_API_ISSUER_ID`, `APPLE_API_KEY_P8_BASE64`.
 Without them the macOS build is produced unsigned. Windows is always unsigned.
