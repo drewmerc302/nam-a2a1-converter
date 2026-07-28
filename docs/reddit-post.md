@@ -19,7 +19,7 @@
 
 - macOS (signed + notarized, opens clean): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-macos.dmg
 - Windows (unzip + run): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-windows.zip
-- Windows + NVIDIA GPU (much faster, ~2.6 GB, ships as 2 parts — see the repo's *Faster training on an NVIDIA GPU* section): https://github.com/drewmerc302/nam-a2a1-converter#faster-training-on-an-nvidia-gpu-windows
+- Windows + NVIDIA GPU (much faster, ~2.6 GB, ships as 2 parts — see the repo's *GPU acceleration* section): https://github.com/drewmerc302/nam-a2a1-converter#gpu-acceleration
 - Linux x86_64 (extract + run): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-linux-x86_64.tar.gz
 - Source + all releases: https://github.com/drewmerc302/nam-a2a1-converter
 

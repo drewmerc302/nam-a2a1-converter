@@ -1,7 +1,7 @@
 # NAM A2 → A1 Converter
 
 Distill **NAM A2** captures into **A1** `.nam` files, for devices and plugins that
-only accept A1 — like the **Valeton GP-5 / GP-50**.
+only accept A1 — like the **Valeton GP-5 / GP-50 / GP-150**.
 
 A2 and A1 are different neural architectures; their weights don't transfer. So this
 doesn't "downgrade" — it **distills**: render a standardized DI through the A2 model,
