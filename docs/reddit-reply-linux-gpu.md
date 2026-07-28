@@ -3,8 +3,9 @@
 Reply to the user who reported the CUDA link going nowhere on Linux, ran a Draft
 convert on an i7-3770, and got it into a Valeton GP-150.
 
-**Do not send until the linux-cuda CI leg is green** — the "it's building right now"
-paragraph promises an artifact that does not exist yet.
+CI leg is green as of 2026-07-28 (run 30401633699): the bundle builds, freezes real
+cu126 torch, holds the glibc 2.35 floor, and packages to 3,564 MiB across three parts.
+Still needs a v0.4.0 tag before the release assets exist — do not send until then.
 
 ---
 
@@ -22,12 +23,11 @@ what you were running. (You're on v0.3.0 — v0.2.0 had no GPU detection at all,
 banner you saw could only have come from the newer build.) Next release puts the
 version in the header so this is never ambiguous again.
 
-**Linux GPU support: yes — it's building as I type this.** CI already had a CUDA leg
-for Windows, so this was mostly packaging work rather than anything hard. Assuming it
-comes out clean it'll be in the next release as
-`nam-a2a1-converter-linux-x86_64-cuda.tar.gz`. Like the Windows one it ships as
-numbered parts (GitHub caps a single release file at 2 GB), but rejoining on Linux
-needs nothing you don't already have:
+**Linux GPU support: done — it builds clean, and it's in the next release.** CI already
+had a CUDA leg for Windows, so this was mostly packaging work rather than anything hard.
+It'll ship as `nam-a2a1-converter-linux-x86_64-cuda.tar.gz`, ~3.5 GB. Like the Windows
+one it arrives as numbered parts (GitHub caps a single release file at 2 GB) — three of
+them in this case — but rejoining on Linux needs nothing you don't already have:
 
 ```bash
 cat nam-a2a1-converter-linux-x86_64-cuda.tar.gz.0* > nam-a2a1-converter-linux-x86_64-cuda.tar.gz

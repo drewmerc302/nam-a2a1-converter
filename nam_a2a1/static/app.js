@@ -386,13 +386,12 @@
 
     const detail = document.createElement("span");
     detail.className = "accel-detail";
-    // The Windows bundle is a measured 2.6 GB; the Linux one is bigger (the cu126 wheel
-    // drags the CUDA runtime in as separate nvidia-* wheels) and is not quoted here
-    // rather than quoted wrong.
+    // Both measured from a real CI build. Linux is the bigger of the two because its
+    // cu126 wheel brings the CUDA runtime along as separate nvidia-* wheels.
     detail.textContent =
       info.platform === "win32"
         ? "(much faster, ~2.6 GB download)"
-        : "(much faster — separate multi-GB download)";
+        : "(much faster, ~3.5 GB download)";
 
     el.append(lead, link, detail);
     el.hidden = false;

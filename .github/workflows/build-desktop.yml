@@ -73,17 +73,11 @@ jobs:
       # nam.models pulls nam.train transitively — so the freeze must be able to collect
       # _tkinter. The tool-cache CPython links it against the SYSTEM Tcl/Tk, which the
       # runner image does not ship; without this the frozen selftest fails on import.
-      # The cu126 leg needs ~7 GB for site-packages, the same again in dist/, and ~3 GB
-      # for the tarball. A stock ubuntu runner does not have that spare, and it runs out
-      # mid-freeze with a confusing PyInstaller error rather than "no space".
-      - name: Free runner disk space (Linux CUDA)
-        if: matrix.platform == 'linux-cuda'
-        run: |
-          df -h /
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-                      /usr/local/share/boost /usr/share/swift
-          df -h /
-
+      #
+      # No disk-cleanup step here despite the cu126 leg being the heaviest thing this
+      # workflow builds: measured 2026-07-28, the ubuntu-22.04 runner starts with 87 GB
+      # free and the whole linux-cuda leg (site-packages + dist/ + a 3.5 GB tarball)
+      # needs well under 20 GB of it. Removing dotnet/android/ghc bought nothing.
       - name: Install Tcl/Tk (Linux)
         if: startsWith(matrix.platform, 'linux')
         run: |
@@ -186,8 +180,11 @@ jobs:
       # GitHub caps a SINGLE release asset at 2 GiB, but allows up to 1000 assets with no
       # cap on total release size — so an oversized bundle ships as parts. Measured
       # 2026-07-26: the CPU zip is ~353 MiB (one asset), the CUDA zip 2,667 MiB (two).
-      # The Linux CUDA tarball is expected to need more parts still; it is sized by the
-      # same rule rather than a hardcoded count.
+      # Measured 2026-07-28: the Linux CPU tarball is ~447 MiB (one), the Linux CUDA
+      # tarball 3,564 MiB (THREE) — bigger than the Windows CUDA bundle because the
+      # Linux cu126 wheel brings the CUDA runtime along as separate nvidia-* wheels.
+      # Part count is derived from PART_MIB, never hardcoded, so this needs no edit when
+      # a torch bump moves the size again.
       #
       # Raw byte split, NOT `7z -v` multi-volume: Explorer cannot open a multi-volume zip,
       # so that route forces every user to install 7-Zip before they can start. Raw parts

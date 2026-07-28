@@ -62,8 +62,8 @@ banner linking here. No banner means you are already as fast as this tool gets.
 Same app, compiled against CUDA instead of CPU-only PyTorch. A convert that takes ~40
 minutes on a CPU takes a small fraction of that.
 
-It is a separate download on purpose: several GiB against the standard build's ~350 MiB,
-and Mac, AMD and Intel machines cannot use a byte of it.
+It is a separate download on purpose — **~2.6 GiB on Windows, ~3.5 GiB on Linux** against
+the standard build's ~350 MiB — and Mac, AMD and Intel machines cannot use a byte of it.
 
 Requires an NVIDIA card of compute capability 5.0+ (GTX 900-series / 2014 or newer) with a
 current driver. Nothing else to install; CUDA itself is inside the bundle.
@@ -89,8 +89,8 @@ copy /b nam-a2a1-converter-windows-cuda.zip.001 + nam-a2a1-converter-windows-cud
 
 Then unzip as usual.
 
-**Linux** — download every `nam-a2a1-converter-linux-x86_64-cuda.tar.gz.0*` part from the
-release, then:
+**Linux** — download all three `nam-a2a1-converter-linux-x86_64-cuda.tar.gz.0*` parts from
+the release, then:
 
 ```bash
 cat nam-a2a1-converter-linux-x86_64-cuda.tar.gz.0* > nam-a2a1-converter-linux-x86_64-cuda.tar.gz
