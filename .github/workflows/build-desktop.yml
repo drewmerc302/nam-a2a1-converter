@@ -1,8 +1,8 @@
 name: build-desktop
 
 # Builds the frozen converter for Windows (.zip, unsigned), Windows + CUDA (.zip,
-# unsigned), macOS (.dmg, signed + notarized when Apple secrets are present), and
-# Linux x86_64 (.tar.gz, unsigned).
+# unsigned), macOS (.dmg, signed + notarized when Apple secrets are present), Linux
+# x86_64 (.tar.gz, unsigned), and Linux x86_64 + CUDA (.tar.gz, unsigned).
 # Runs on a v* tag and attaches the artifacts to the GitHub Release. Can also be run
 # manually to smoke-test the freeze (artifacts uploaded to the run, not a release) —
 # do that first after touching the CUDA leg, to read its real packaged size.
@@ -47,6 +47,16 @@ jobs:
           - os: ubuntu-22.04
             platform: linux
             torch_index: cpu
+            artifact: nam-a2a1-converter-linux-x86_64.tar.gz
+          # Linux NVIDIA users were being shown the GPU banner and sent to a Windows-only
+          # download (reported 2026-07-28). Same separate-download reasoning as win-cuda.
+          # Expect this bundle to be LARGER than the Windows one: the Linux cu126 wheel
+          # pulls the CUDA runtime in as separate nvidia-* wheels, which PyInstaller then
+          # collects individually. Same 22.04 pin, for the same glibc reason as above.
+          - os: ubuntu-22.04
+            platform: linux-cuda
+            torch_index: cu126
+            artifact: nam-a2a1-converter-linux-x86_64-cuda.tar.gz
     runs-on: ${{ matrix.os }}
     env:
       # Highest GLIBC_* symbol version the Linux build may require. Enforced below so a
@@ -63,8 +73,19 @@ jobs:
       # nam.models pulls nam.train transitively — so the freeze must be able to collect
       # _tkinter. The tool-cache CPython links it against the SYSTEM Tcl/Tk, which the
       # runner image does not ship; without this the frozen selftest fails on import.
+      # The cu126 leg needs ~7 GB for site-packages, the same again in dist/, and ~3 GB
+      # for the tarball. A stock ubuntu runner does not have that spare, and it runs out
+      # mid-freeze with a confusing PyInstaller error rather than "no space".
+      - name: Free runner disk space (Linux CUDA)
+        if: matrix.platform == 'linux-cuda'
+        run: |
+          df -h /
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
+                      /usr/local/share/boost /usr/share/swift
+          df -h /
+
       - name: Install Tcl/Tk (Linux)
-        if: matrix.platform == 'linux'
+        if: startsWith(matrix.platform, 'linux')
         run: |
           sudo apt-get update
           sudo apt-get install -y libtk8.6 libtcl8.6
@@ -112,7 +133,7 @@ jobs:
       # The runner has a system libsndfile, so a bundle that's missing it still passes the
       # selftest and then dies on the user's machine at the first render. Assert it here.
       - name: Verify libsndfile is bundled (Linux)
-        if: matrix.platform == 'linux'
+        if: startsWith(matrix.platform, 'linux')
         run: |
           want="dist/nam-a2a1-converter/_internal/_soundfile_data/libsndfile_$(uname -m).so"
           if [ ! -f "$want" ]; then
@@ -137,7 +158,7 @@ jobs:
             echo "::error::bundle requires glibc $max > floor $LINUX_GLIBC_FLOOR — it will not start on the distros this build targets"
             exit 1
           fi
-        if: matrix.platform == 'linux'
+        if: startsWith(matrix.platform, 'linux')
 
       # ---------- Linux: tar the onedir ----------
       # tar, NOT zip: Compress-Archive drops Unix mode bits, and actions/upload-artifact
@@ -145,8 +166,10 @@ jobs:
       # and the user gets "Permission denied". tar stores the mode inside the archive, so
       # it survives the artifact re-zip intact.
       - name: Package (Linux)
-        if: matrix.platform == 'linux'
-        run: tar -czf nam-a2a1-converter-linux-x86_64.tar.gz -C dist nam-a2a1-converter
+        if: startsWith(matrix.platform, 'linux')
+        run: |
+          tar -czf "${{ matrix.artifact }}" -C dist nam-a2a1-converter
+          ls -lh "${{ matrix.artifact }}"
 
       # ---------- Windows: zip the onedir (both the CPU and CUDA legs) ----------
       # 7z, NOT Compress-Archive: the latter is documented to top out around 2 GB
@@ -163,37 +186,44 @@ jobs:
       # GitHub caps a SINGLE release asset at 2 GiB, but allows up to 1000 assets with no
       # cap on total release size — so an oversized bundle ships as parts. Measured
       # 2026-07-26: the CPU zip is ~353 MiB (one asset), the CUDA zip 2,667 MiB (two).
+      # The Linux CUDA tarball is expected to need more parts still; it is sized by the
+      # same rule rather than a hardcoded count.
       #
       # Raw byte split, NOT `7z -v` multi-volume: Explorer cannot open a multi-volume zip,
       # so that route forces every user to install 7-Zip before they can start. Raw parts
-      # rejoin with cmd's built-in `copy /b`, or automatically via get-cuda-build.ps1.
-      - name: Split oversized artifact (Windows)
-        if: runner.os == 'Windows'
+      # rejoin with tooling every user already has — cmd's built-in `copy /b` on Windows
+      # (or get-cuda-build.ps1), plain `cat` on Linux.
+      #
+      # Runs for every leg that produces a named artifact, not just Windows: `if` keys off
+      # matrix.artifact, which the macOS leg deliberately does not set (it ships a .dmg,
+      # built and attached by its own step).
+      - name: Split oversized artifact
+        if: matrix.artifact != ''
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="${{ matrix.artifact }}"
+          ART="${{ matrix.artifact }}"
           LIMIT_MIB=2000   # under 2 GiB with headroom
-          PART_MIB=1400    # keeps the CUDA zip at exactly two parts
+          PART_MIB=1400    # keeps the Windows CUDA zip at exactly two parts
 
-          # The ASSEMBLED zip's checksum is the one that matters: it is what the user must
-          # end up with after rejoining, and a silently truncated part is otherwise
-          # undebuggable from the far end of a 2.6 GB download. Per-part sums let them
+          # The ASSEMBLED archive's checksum is the one that matters: it is what the user
+          # must end up with after rejoining, and a silently truncated part is otherwise
+          # undebuggable from the far end of a multi-GB download. Per-part sums let them
           # find WHICH download went wrong instead of refetching everything.
-          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          sha256sum "$ART" | tee "$ART.sha256"
 
-          size_mib=$(( $(wc -c < "$ZIP") / 1048576 ))
+          size_mib=$(( $(wc -c < "$ART") / 1048576 ))
           if [ "$size_mib" -le "$LIMIT_MIB" ]; then
-            echo "$ZIP is ${size_mib} MiB — fits as a single asset, not splitting"
+            echo "$ART is ${size_mib} MiB — fits as a single asset, not splitting"
             exit 0
           fi
 
-          echo "$ZIP is ${size_mib} MiB — splitting into ${PART_MIB} MiB parts"
-          split -b "${PART_MIB}m" -d -a 3 --numeric-suffixes=1 "$ZIP" "$ZIP."
-          rm -f "$ZIP"   # do not also upload the whole file; it cannot be attached anyway
-          sha256sum "$ZIP".[0-9][0-9][0-9] | tee -a "$ZIP.sha256"
-          ls -l "$ZIP".[0-9][0-9][0-9]
-          for p in "$ZIP".[0-9][0-9][0-9]; do
+          echo "$ART is ${size_mib} MiB — splitting into ${PART_MIB} MiB parts"
+          split -b "${PART_MIB}m" -d -a 3 --numeric-suffixes=1 "$ART" "$ART."
+          rm -f "$ART"   # do not also upload the whole file; it cannot be attached anyway
+          sha256sum "$ART".[0-9][0-9][0-9] | tee -a "$ART.sha256"
+          ls -l "$ART".[0-9][0-9][0-9]
+          for p in "$ART".[0-9][0-9][0-9]; do
             pm=$(( $(wc -c < "$p") / 1048576 ))
             [ "$pm" -le "$LIMIT_MIB" ] || {
               echo "::error::part $p is ${pm} MiB — still over the cap; lower PART_MIB"
@@ -283,6 +313,8 @@ jobs:
             nam-a2a1-converter-windows-cuda.zip.*
             nam-a2a1-converter-macos.dmg
             nam-a2a1-converter-linux-x86_64.tar.gz
+            nam-a2a1-converter-linux-x86_64-cuda.tar.gz
+            nam-a2a1-converter-linux-x86_64-cuda.tar.gz.*
             *.sha256
           if-no-files-found: ignore
 
@@ -296,5 +328,7 @@ jobs:
             nam-a2a1-converter-windows-cuda.zip.*
             nam-a2a1-converter-macos.dmg
             nam-a2a1-converter-linux-x86_64.tar.gz
+            nam-a2a1-converter-linux-x86_64-cuda.tar.gz
+            nam-a2a1-converter-linux-x86_64-cuda.tar.gz.*
             *.sha256
           fail_on_unmatched_files: false

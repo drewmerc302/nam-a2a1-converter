@@ -11,7 +11,9 @@
     <nav class="top-nav">
       <div class="brand">
         <div class="brand-logo">A</div>
-        <div><div class="brand-name">NAM A2 → A1</div><div class="brand-sub">Converter</div></div>
+        <!-- #app-version is filled by app.js from /api/version. It exists so a bug
+             report can name the build; nothing else depends on it. -->
+        <div><div class="brand-name">NAM A2 → A1</div><div class="brand-sub">Converter <span id="app-version" class="app-version"></span></div></div>
       </div>
       <div class="nav-spacer"></div>
       <button type="button" id="theme-toggle" class="theme-toggle">☾ Dark</button>
@@ -53,8 +55,8 @@
             <li><b>Best (120)</b> — chasing the last few %. Diminishing returns and noticeably longer.</li>
           </ul>
           <p class="epoch-note">More epochs = longer convert but tighter tone. Runtimes are far shorter on a GPU —
-            Apple silicon uses it automatically; on Windows it needs the CUDA build. The progress bar shows an
-            estimate once training starts.</p>
+            Apple silicon uses it automatically; on Windows and Linux it needs the CUDA build. On an older CPU
+            expect tens of minutes even at Draft. The progress bar shows an estimate once training starts.</p>
         </div>
 
         <div class="format-toggle" id="format-toggle" style="margin-top:0.6rem;">

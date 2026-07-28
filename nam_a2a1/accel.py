@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import threading
 from typing import Optional
 
@@ -35,7 +36,21 @@ MIN_COMPUTE_CAPABILITY = 5.0
 # display adapters too small to hold the model plus a batch at all.
 MIN_VRAM_MB = 1800
 
-CUDA_DOWNLOAD_URL = "https://github.com/drewmerc302/nam-a2a1-converter/releases/latest"
+# Platforms a CUDA build exists for. macOS is absent on purpose and always will be:
+# there are no CUDA torch wheels for macOS at any version, so an NVIDIA card in an old
+# Intel Mac (or an eGPU) has no upgrade path and must not be advertised one.
+#
+# Before this list existed the banner keyed only off "NVIDIA card present + this build
+# has no CUDA", which is platform-blind — a Linux user with an RTX 3060 was shown "Get
+# the CUDA build" and sent to a page whose only Linux asset was the CPU build they had
+# already downloaded (reported 2026-07-28).
+CUDA_PLATFORMS = ("win32", "linux")
+
+# The README section, NOT the bare releases page. Every CUDA bundle ships as numbered
+# parts that have to be rejoined before they are usable, and the releases page says
+# nothing about that — it just shows a list of .001/.002 files. The README names the
+# right file for each OS and gives the rejoin command.
+CUDA_DOWNLOAD_URL = "https://github.com/drewmerc302/nam-a2a1-converter#gpu-acceleration"
 
 _cache: Optional[dict] = None
 _cache_lock = threading.Lock()
@@ -145,13 +160,16 @@ def status(refresh: bool = False) -> dict:
     gpu = detect_nvidia()
     backend = torch_info.get("backend", "unknown")
 
-    # Only worth nagging when there is a real speedup being missed: a supported NVIDIA
-    # card that this build physically cannot use.
+    # Only worth nagging when there is a real speedup being missed AND the user can
+    # actually act on it: a supported NVIDIA card, a build that physically cannot use
+    # it, and a platform a CUDA bundle is published for. Dropping that last clause is
+    # what made the banner a dead end on Linux.
     upgrade = bool(
         gpu
         and _card_is_supported(gpu)
         and not torch_info.get("cuda_build")
         and backend not in ("cuda", "mps")
+        and sys.platform.startswith(CUDA_PLATFORMS)
     )
 
     result = {
@@ -159,6 +177,7 @@ def status(refresh: bool = False) -> dict:
         "cuda_build": bool(torch_info.get("cuda_build")),
         "torch": torch_info.get("torch"),
         "gpu": gpu,
+        "platform": sys.platform,
         "upgrade_available": upgrade,
         "download_url": CUDA_DOWNLOAD_URL if upgrade else None,
     }

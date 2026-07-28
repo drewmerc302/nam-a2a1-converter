@@ -386,10 +386,24 @@
 
     const detail = document.createElement("span");
     detail.className = "accel-detail";
-    detail.textContent = "(much faster, ~2.6 GB download)";
+    // The Windows bundle is a measured 2.6 GB; the Linux one is bigger (the cu126 wheel
+    // drags the CUDA runtime in as separate nvidia-* wheels) and is not quoted here
+    // rather than quoted wrong.
+    detail.textContent =
+      info.platform === "win32"
+        ? "(much faster, ~2.6 GB download)"
+        : "(much faster — separate multi-GB download)";
 
     el.append(lead, link, detail);
     el.hidden = false;
+  }
+
+  // The build number, so a bug report can say which one. Its own endpoint because
+  // /api/accel takes seconds to answer and this has to be on screen immediately.
+  function renderVersion(info) {
+    const el = document.getElementById("app-version");
+    if (!el || !info || !info.version) return;
+    el.textContent = `v${info.version}`;
   }
 
   function escapeHtml(s) {
@@ -409,6 +423,11 @@
   fetch("/api/accel")
     .then((r) => (r.ok ? r.json() : null))
     .then(renderAccelBanner)
+    .catch(() => {});
+
+  fetch("/api/version")
+    .then((r) => (r.ok ? r.json() : null))
+    .then(renderVersion)
     .catch(() => {});
 
   syncPresetActive();

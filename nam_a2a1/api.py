@@ -12,10 +12,19 @@ from typing import Callable, Dict, List
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from nam_a2a1 import accel, engine
+from nam_a2a1 import __version__, accel, engine
 from nam_a2a1.engine import ConvertJob, FileState
 
 router = APIRouter(prefix="/api")
+
+
+@router.get("/version")
+def get_version() -> dict:
+    """Which build this is. Kept separate from /api/accel on purpose: that one shells
+    out to a worker that imports torch and takes seconds to answer, and a version
+    string is only useful if it is on screen when someone is trying to tell you what
+    they are running. Nothing here touches torch, so it returns instantly."""
+    return {"version": __version__}
 
 
 @router.get("/accel")

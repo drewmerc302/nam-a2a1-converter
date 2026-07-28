@@ -50,24 +50,30 @@ Training is much faster on a GPU. What you need to do depends on the machine:
 | --- | --- |
 | **Apple silicon (M1/M2/M3/M4)** | **Nothing.** The macOS build above already trains on the GPU via Metal (MPS). No extra download, no setting, no opt-in. |
 | **Windows + NVIDIA** | Get the **CUDA build** below. |
+| **Linux + NVIDIA** | Get the **CUDA build** below. |
 | **Intel Mac, AMD / Intel GPUs** | CPU only — no GPU path today. |
 
 **You do not have to work out which row you are.** The app checks on launch: if it finds an
-NVIDIA card the current build cannot use, it shows a banner linking to the CUDA build. No
-banner means you are already as fast as this tool gets. (That banner is what you can see at
-the top of this page.)
+NVIDIA card the current build cannot use *and* a CUDA build exists for your OS, it shows a
+banner linking here. No banner means you are already as fast as this tool gets.
 
-#### The CUDA build (Windows + NVIDIA)
+#### The CUDA build (Windows / Linux + NVIDIA)
 
 Same app, compiled against CUDA instead of CPU-only PyTorch. A convert that takes ~40
 minutes on a CPU takes a small fraction of that.
 
-It is a separate download on purpose: **~2.6 GiB** against the standard build's ~350 MiB,
+It is a separate download on purpose: several GiB against the standard build's ~350 MiB,
 and Mac, AMD and Intel machines cannot use a byte of it.
 
-GitHub caps one release file at 2 GiB, so the CUDA build ships as numbered parts that you
-rejoin. Easiest way — download
-[`get-cuda-build.ps1`](scripts/get-cuda-build.ps1) from this repo and run:
+Requires an NVIDIA card of compute capability 5.0+ (GTX 900-series / 2014 or newer) with a
+current driver. Nothing else to install; CUDA itself is inside the bundle.
+
+GitHub caps one release file at 2 GiB, so the CUDA builds ship as numbered parts that you
+rejoin. The parts are a plain byte split, so the tools to rejoin them are already on your
+machine.
+
+**Windows** — easiest way, download [`get-cuda-build.ps1`](scripts/get-cuda-build.ps1) from
+this repo and run:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File get-cuda-build.ps1
@@ -75,20 +81,41 @@ powershell -ExecutionPolicy Bypass -File get-cuda-build.ps1
 
 It fetches the parts, checks them against the published SHA256, rejoins them, and unpacks
 the app. (`-ExecutionPolicy Bypass` is needed because the script is unsigned; it only ever
-downloads from this repo's releases.)
-
-Or do it by hand — the parts are a plain byte split, so `copy /b` rebuilds the zip with no
-extra software:
+downloads from this repo's releases.) Or do it by hand with `copy /b`:
 
 ```cmd
 copy /b nam-a2a1-converter-windows-cuda.zip.001 + nam-a2a1-converter-windows-cuda.zip.002 nam-a2a1-converter-windows-cuda.zip
 ```
 
-Then unzip as usual. Verify against `nam-a2a1-converter-windows-cuda.zip.sha256` on the
-release if a convert later fails oddly — a truncated part is the usual cause.
+Then unzip as usual.
 
-Requires an NVIDIA card of compute capability 5.0+ (GTX 900-series / 2014 or newer) with a
-current driver. Nothing else to install; CUDA itself is inside the bundle.
+**Linux** — download every `nam-a2a1-converter-linux-x86_64-cuda.tar.gz.0*` part from the
+release, then:
+
+```bash
+cat nam-a2a1-converter-linux-x86_64-cuda.tar.gz.0* > nam-a2a1-converter-linux-x86_64-cuda.tar.gz
+sha256sum -c --ignore-missing nam-a2a1-converter-linux-x86_64-cuda.tar.gz.sha256
+tar -xzf nam-a2a1-converter-linux-x86_64-cuda.tar.gz
+./nam-a2a1-converter/nam-a2a1-converter
+```
+
+The shell glob orders the parts correctly — they are numbered `.001`, `.002`, … so a plain
+lexical sort is the right order. Needs the NVIDIA proprietary driver installed (`nvidia-smi`
+should print your card); the CUDA toolkit itself is inside the bundle, so there is nothing
+to `apt install`.
+
+On either OS, verify against the published `.sha256` if a convert later fails oddly — a
+truncated part is the usual cause.
+
+**Prefer to stay on the standard build?** The from-source route gets you CUDA on Linux or
+Windows without a multi-GB download, at the cost of setting up Python:
+
+```bash
+python3 -m venv .venv
+./.venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cu126
+./.venv/bin/pip install -r requirements.txt
+./.venv/bin/python -m nam_a2a1
+```
 
 ## Using it
 
@@ -100,8 +127,12 @@ current driver. Nothing else to install; CUDA itself is inside the bundle.
 6. Load the A1 `.nam` on your device — e.g. import into **Valeton Suite**, which converts
    it to a SnapTone and pushes it to the pedal.
 
-**First convert is slowest** on a machine with no GPU (CPU training — a few minutes at
-Standard). The ETA tells you how long is left.
+**On a CPU this is slow, and how slow depends heavily on the CPU.** A recent desktop chip
+does Standard in a few minutes; a 2012-era quad-core (e.g. an i7-3770) can take ~40 minutes
+at **Draft**, and proportionally longer at Standard. The ETA appears once training starts
+and firms up as it goes — early epochs run faster than later ones, so the first number it
+shows tends to be optimistic. If you have an NVIDIA card, the CUDA build above is the
+difference between tens of minutes and a couple of them.
 
 ## Quality presets
 
