@@ -2,7 +2,7 @@
 
 ---
 
-**TL;DR** — Many NAM capture providers have stopped providing NAM A1 files entirely, leaving owners of devices that convert NAM A1 to some proprietary format unable to use the most recent captures (like the Valeton GP-5/GP-50, Hotone Ampero, etc...). I made a free, no-setup desktop app that distills any A2 `.nam` into an A1 `.nam`. Drop a file, get a file. Windows + macOS + Linux.
+**TL;DR** — Many NAM capture providers have stopped providing NAM A1 files entirely, leaving owners of devices that convert NAM A1 to some proprietary format unable to use the most recent captures (like the Valeton GP-5/GP-50/GP-150, Hotone Ampero, etc...). I made a free, no-setup desktop app that distills any A2 `.nam` into an A1 `.nam`. Drop a file, get a file. Windows + macOS + Linux.
 
 **Edit:** Linux build is up as of v0.2.0 — someone asked, so I built it. x86_64, link below.
 
@@ -15,12 +15,21 @@
 - **Windows launch crash fixed.** If you double-clicked the .exe and it flashed and vanished, that was a real bug, not your machine: the windowed build starts with no stdout, and PyTorch's web server died configuring its logger before it could even open a port. Launching via PowerShell with `| Out-Host` worked around it by handing the process a real output pipe. **v0.3.0 fixes the cause — no wrapper script needed.** Thanks to the person who reported it.
 - AMD/Intel GPUs aren't supported for training — CPU only there for now.
 
+**EDIT 3 (v0.4.0) — Linux GPU support, and a bug that was sending Linux users to a Windows-only download:**
+
+- **NVIDIA on Linux gets a CUDA build too.** Same deal as the Windows one — same app, compiled against CUDA instead of CPU-only PyTorch. It's ~3.5 GB and ships as three parts; rejoin them with `cat *.0* > file.tar.gz`, no extra software. **It runs on exactly the same distros as the standard Linux build** (the bundled CUDA runtime needs nothing newer than glibc 2.35), so if the regular build starts on your machine this one will too. All it needs from you is the NVIDIA driver — the CUDA toolkit is inside the bundle.
+- **The GPU banner was broken on Linux.** It checked "is there an NVIDIA card?" and "can this build use it?" but never checked *what OS it was running on* — so Linux users with an NVIDIA card got a "Get the CUDA build" link pointing at something that only existed for Windows. That's fixed: the banner is platform-aware now, and it links to the repo's GPU section (which actually explains the multi-part download) instead of the bare releases page. Thanks to the person who reported it — it wouldn't have occurred to me, I don't run Linux.
+- **The app shows its version number now.** It didn't before, which made "which build are you on?" unanswerable.
+- **I was wrong about CPU runtimes.** The README said a Standard convert takes "a few minutes" on CPU. True on a modern desktop chip, nonsense on an older one — a 2012 i7-3770 took ~40 minutes at **Draft**. Corrected. The ETA is also optimistic at the start: it extrapolates from finished epochs, and the early ones run faster than the later ones, so the first number you see drifts up.
+- macOS is unchanged — Apple silicon has trained on the GPU via Metal since v0.3.0 and still needs nothing.
+
 **Downloads (no Python, no setup):**
 
 - macOS (signed + notarized, opens clean): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-macos.dmg
 - Windows (unzip + run): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-windows.zip
 - Windows + NVIDIA GPU (much faster, ~2.6 GB, ships as 2 parts — see the repo's *GPU acceleration* section): https://github.com/drewmerc302/nam-a2a1-converter#gpu-acceleration
 - Linux x86_64 (extract + run): https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-linux-x86_64.tar.gz
+- Linux x86_64 + NVIDIA GPU (much faster, ~3.5 GB, ships as 3 parts — see the repo's *GPU acceleration* section): https://github.com/drewmerc302/nam-a2a1-converter#gpu-acceleration
 - Source + all releases: https://github.com/drewmerc302/nam-a2a1-converter
 
 ---
@@ -47,8 +56,8 @@ A2.nam ──render DI──▶ teacher.wav ──train an A1 to match──▶ 
 **Notes**
 
 - Free and open source. Runs 100% on your machine — nothing is uploaded.
-- Runtimes depend heavily on whether training lands on a GPU. **M-series Macs use theirs automatically (Metal/MPS) — nothing to install.** On Windows, the CUDA build is what gets you off the CPU; the standard build will tell you if that applies to your machine.
-- **macOS is tested end-to-end, and Windows has now had a real conversion run on it** by someone who reported back (~40 min at Standard on CPU). **Linux** compiles and passes an automated check in CI, but I don't own a Linux box — so if you're on Linux, consider yourself a tester and please open an issue if something breaks.
+- Runtimes depend heavily on whether training lands on a GPU, and on how old your CPU is if it doesn't. **M-series Macs use theirs automatically (Metal/MPS) — nothing to install.** On Windows and Linux, the CUDA build is what gets you off the CPU; the standard build will tell you if that applies to your machine.
+- **macOS, Windows and Linux have all now had real conversions run on them** by people who reported back — Windows ~40 min at Standard on CPU, Linux Mint 22 on an i7-3770 at Draft in about the same, output imported and running on a Valeton GP-150. The GPU builds are newer and less travelled, so if you're on CUDA and something looks wrong, please open an issue.
 - **Linux** is x86_64, built against glibc 2.35 — Ubuntu 22.04+, Debian 12+, Mint 21+, Pop!_OS 22.04+, Fedora 36+, Arch, openSUSE 15.5+. **Nothing to install:** Tcl/Tk and the X11 libs are bundled, so glibc is the only thing it needs from your system. Older distro or ARM → run it from source (`pip install -r requirements.txt`), same app.
 
 Questions/bugs → drop them here or open an issue on the repo. Enjoy.
