@@ -11,3 +11,5 @@ NAM-A2A1-out/
 # local tooling output
 graphify-out/
 .DS_Store
+# reply drafts for forum/reddit threads — written here, posted, then irrelevant
+docs/reddit-reply-*.md
