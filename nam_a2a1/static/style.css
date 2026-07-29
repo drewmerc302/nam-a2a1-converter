@@ -63,6 +63,13 @@
   box-sizing: border-box;
 }
 
+/* The UA's [hidden] rule is a bare `display: none`, so any class that sets its own
+   display (e.g. .accel-banner's flex) silently outranks it and the element renders
+   empty-but-visible. Enforce it once, globally, instead of per-component. */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
