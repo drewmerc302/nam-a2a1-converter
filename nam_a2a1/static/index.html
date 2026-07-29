@@ -60,8 +60,11 @@
         </div>
 
         <div class="format-toggle" id="format-toggle" style="margin-top:0.6rem;">
-          <label class="radio-pill"><input type="radio" name="output_format" value="0.5x" checked /> A1 0.5.x <span class="hint">— GP-5 / GP-50 &amp; other A1-only gear</span></label>
-          <label class="radio-pill"><input type="radio" name="output_format" value="0.7.0" /> A1 0.7.0 <span class="hint">— newer NAM plugins</span></label>
+          <label class="radio-pill"><input type="radio" name="output_format" value="0.5x" checked /> A1 0.5.x <span class="hint">— GP-5 / GP-50 / GP-150 &amp; other A1-only gear</span></label>
+          <!-- Reported by a GP-150 owner: Valeton Suite doesn't reject a 0.7.0 file, it
+               spins on "importing..." for ~2 min and then times out. Say so here so nobody
+               else spends the training time to find out. -->
+          <label class="radio-pill"><input type="radio" name="output_format" value="0.7.0" /> A1 0.7.0 <span class="hint">— newer NAM plugins only, Valeton Suite can't import it</span></label>
         </div>
 
         <div style="display:flex; gap:0.5rem; margin-top:0.85rem; align-items:center;">
