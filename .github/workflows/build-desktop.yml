@@ -347,12 +347,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      # fetch-depth: 0 so the annotated tag OBJECT is present, not just the commit —
-      # `git tag -l --format` reads the annotation message, which is where the title
-      # comes from.
+      # Only the notes file is read from the checkout; the tag annotation is fetched
+      # from the API (see below), so there is no reason to pay for full history.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set release title and notes
         env:
@@ -364,8 +361,20 @@ jobs:
 
           # Title = the annotated tag's subject line, so it is written once, at tag time,
           # and cannot drift from the tag it describes.
-          TITLE=$(git tag -l --format='%(contents:subject)' "$TAG")
-          [ -n "$TITLE" ] || TITLE="$TAG"
+          #
+          # Read it over the API, NOT with `git tag -l --format='%(contents:subject)'`.
+          # actions/checkout recreates the tag locally as LIGHTWEIGHT even at
+          # fetch-depth: 0, and for a lightweight tag %(contents:subject) silently falls
+          # back to the tagged *commit's* subject — non-empty, so a `[ -n ]` guard never
+          # catches it. v0.4.1 shipped titled "chore: bump __version__ to 0.4.1" that way.
+          REF=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}")
+          TITLE="$TAG"
+          if [ "$(jq -r '.object.type' <<<"$REF")" = tag ]; then
+            OBJ=$(jq -r '.object.sha' <<<"$REF")
+            MSG=$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${OBJ}" -q '.message' | head -1)
+            [ -n "$MSG" ] && TITLE="$MSG"
+          fi
+          echo "release title: $TITLE"
 
           if [ -f "$NOTES" ]; then
             echo "release body from $NOTES"
