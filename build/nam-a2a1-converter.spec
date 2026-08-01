@@ -24,6 +24,7 @@ hiddenimports += [
     "nam_a2a1.pipeline.train_a1_070",
     "nam_a2a1.pipeline.distill_protocol",
     "nam_a2a1.pipeline.nam_transcode",
+    "nam_a2a1.pipeline.y_gain",
     "nam_a2a1.pipeline.make_di",
     "uvicorn",
     "uvicorn.logging",

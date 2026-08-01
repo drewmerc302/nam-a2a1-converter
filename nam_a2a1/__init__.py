@@ -1,3 +1,3 @@
 """NAM A2 → A1 distillation converter."""
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"

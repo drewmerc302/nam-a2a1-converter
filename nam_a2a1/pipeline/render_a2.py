@@ -17,6 +17,7 @@ Usage:
 import json
 import sys
 
+from nam_a2a1.pipeline import y_gain  # teacher-gain sidecar contract with Stage 2
 import numpy as np
 import soundfile as sf
 import torch
@@ -93,12 +94,24 @@ def main():
 
     y = render(model, x)
     peak = float(np.max(np.abs(y))) if len(y) else 0.0
-    # Write 24-bit PCM to match the NAM/Valeton ecosystem. Guard against clipping.
-    if peak > 0.999:
-        print(f"NOTE: teacher output peak {peak:.3f} near full scale", file=sys.stderr)
+    # Write 24-bit PCM to match the NAM/Valeton ecosystem. A hot capture can render
+    # above full scale; the 24-bit write would pin those samples to exactly -1.0 and
+    # NAM's Dataset would reject the whole file ("Output clipped."). Attenuate
+    # instead and record the gain — Stage 2 puts the level back on the exported
+    # model, so the student still matches the teacher.
+    gain = y_gain.gain_for_peak(peak)
+    if gain != 1.0:
+        y = y * gain
+        print(
+            f"NOTE: teacher peak {peak:.4f} exceeds full scale; attenuating by "
+            f"{20.0 * np.log10(gain):.2f} dB for training (restored on export)",
+            file=sys.stderr,
+        )
     sf.write(out_path, y, int(sr), subtype="PCM_24")
+    y_gain.write_gain(out_path, gain, peak)
     print(
-        f"rendered {len(y)} samples  rf={model.receptive_field}  peak={peak:.4f}  -> {out_path}"
+        f"rendered {len(y)} samples  rf={model.receptive_field}  peak={peak:.4f}  "
+        f"gain={gain:.6f}  -> {out_path}"
     )
 
 

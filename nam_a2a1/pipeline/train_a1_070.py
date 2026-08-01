@@ -25,6 +25,7 @@ from pathlib import Path
 
 from nam_a2a1.pipeline import distill_protocol  # engine <-> train stdout contract
 from nam_a2a1.pipeline import nam_transcode  # pure-Python 0.7.0 -> 0.5.x transcoder
+from nam_a2a1.pipeline import y_gain  # Stage 1's teacher-attenuation sidecar
 import numpy as np
 import soundfile as sf
 import torch
@@ -224,6 +225,17 @@ def main():
     with torch.no_grad():
         y_pred = student(torch.from_numpy(x_eval), pad_start=True).cpu().numpy()
     e = esr(y_pred[warm:], yt[split:])
+
+    # ESR above is measured against y.wav as written, so it is unaffected by the
+    # level restore below: scaling prediction and target by the same factor leaves
+    # the ratio unchanged. Restore the level *after* measuring, before export.
+    gain = y_gain.read_gain(args.y)
+    if gain != 1.0:
+        y_gain.compensate_file(exported, gain)
+        print(
+            f"restored teacher level: head_scale x {1.0 / gain:.6f} "
+            f"({-20.0 * np.log10(gain):.2f} dB)"
+        )
 
     final = outdir / "a1.nam"
     if args.fmt == "0.5x":
