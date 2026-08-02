@@ -21,7 +21,11 @@ Because the A2 teacher is deterministic and noise-free, the A1 copy is typically
 Latest desktop build — no Python, no setup:
 
 - **macOS** — [**nam-a2a1-converter-macos.dmg**](https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-macos.dmg)
-  — signed + notarized, opens clean.
+  — open the dmg, drag **nam-a2a1-converter** to Applications, launch it from there.
+  Signed with a Developer ID, notarized by Apple, and the ticket is stapled to the app
+  itself, so it opens with no warning and works offline.
+  *(v0.4.2 and earlier shipped a loose executable instead of an `.app`, which Gatekeeper
+  blocks regardless of signing — if you hit that warning, take v0.4.3 or newer.)*
 - **Windows** — [**nam-a2a1-converter-windows.zip**](https://github.com/drewmerc302/nam-a2a1-converter/releases/latest/download/nam-a2a1-converter-windows.zip)
   — unzip, run `nam-a2a1-converter.exe`. It's **unsigned**, so SmartScreen warns:
   click **More info → Run anyway**. Some antivirus may flag PyInstaller apps — false positive.

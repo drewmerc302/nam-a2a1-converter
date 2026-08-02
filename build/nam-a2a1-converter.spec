@@ -3,7 +3,22 @@
 # frozen exe acts as both the app and its own render/train worker.
 #
 # Build from the repo root:  pyinstaller build/nam-a2a1-converter.spec
+#
+# On macOS this ALSO emits dist/nam-a2a1-converter.app. That bundle is the shipping
+# artifact, not a convenience: Gatekeeper refuses to approve a bare Mach-O executable
+# no matter how well it is signed ("the code is valid but does not seem to be an app"),
+# and a notarization ticket can only be stapled to a bundle, dmg or pkg — never to a
+# loose binary. v0.4.2 and earlier shipped the loose COLLECT output inside the dmg, so
+# every macOS user hit the malware warning on a correctly signed, notarized build.
+import os
+import re
+import sys
+
 from PyInstaller.utils.hooks import collect_all
+
+_init = os.path.join(SPECPATH, "..", "nam_a2a1", "__init__.py")  # noqa: F821 (PyInstaller global)
+with open(_init, encoding="utf-8") as _fp:
+    VERSION = re.search(r'__version__\s*=\s*"([^"]+)"', _fp.read()).group(1)
 
 datas, binaries, hiddenimports = [], [], []
 for pkg in ("nam", "torch", "pytorch_lightning", "torchmetrics", "soundfile", "numpy"):
@@ -79,3 +94,25 @@ coll = COLLECT(
     upx=False,
     name="nam-a2a1-converter",
 )
+
+# macOS only. BUNDLE is a no-op elsewhere, but guard it anyway so the Windows and
+# Linux legs never depend on that.
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="nam-a2a1-converter.app",
+        icon=None,
+        bundle_identifier="com.drewmerc.nam-a2a1-converter",
+        version=VERSION,
+        info_plist={
+            "CFBundleName": "NAM A2A1 Converter",
+            "CFBundleDisplayName": "NAM A2 to A1 Converter",
+            "CFBundleShortVersionString": VERSION,
+            "CFBundleVersion": VERSION,
+            "NSHighResolutionCapable": True,
+            # The app has no window of its own — it opens the converter page in the
+            # user's browser — but it must NOT be LSUIElement: the Dock icon is the
+            # only way to quit it.
+            "LSMinimumSystemVersion": "12.0",
+        },
+    )
